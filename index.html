@@ -945,6 +945,75 @@
         .login-status { min-height: 18px; margin: 15px 0 0; color: var(--mint); font-size: 10px; line-height: 1.55; text-align: center; }
         .login-status.error { color: var(--pink-light); }
         .login-status:empty { display: none; }
+        body.profile-page-mode > main:not(#profile-page) { display: none; }
+        #profile-page[hidden] { display: none; }
+        .profile-page { width: min(1030px, calc(100% - 48px)); margin: 42px auto 70px; }
+        .profile-page-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 24px; }
+        .profile-page-header h1 { margin: 7px 0 0; font-size: clamp(30px, 5vw, 42px); letter-spacing: -.06em; }
+        .profile-page-header p { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+        .profile-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .75fr); align-items: start; gap: 18px; }
+        .profile-column { display: grid; gap: 18px; }
+        .profile-card { padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: rgba(26,21,43,.86); }
+        .profile-card-heading { display: flex; align-items: center; gap: 13px; margin-bottom: 17px; }
+        .profile-card-heading h2 { margin: 0; font-size: 18px; letter-spacing: -.035em; }
+        .profile-card-heading p { margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+        .profile-avatar-preview { width: 52px; height: 52px; display: grid; flex-shrink: 0; place-items: center; border: 1px solid rgba(255,255,255,.13); border-radius: 16px; background: linear-gradient(145deg, #713b88, #bd4d8c); font-size: 28px; }
+        .profile-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+        .profile-form-grid .profile-field-wide { grid-column: 1 / -1; }
+        .profile-field { display: block; margin-top: 13px; color: #e8e1ed; font-size: 10px; font-weight: 750; }
+        .profile-field input, .profile-field select, .profile-field textarea, .friend-search-form input {
+            width: 100%;
+            min-height: 42px;
+            margin-top: 7px;
+            padding: 10px 12px;
+            border: 1px solid rgba(255,255,255,.13);
+            border-radius: 10px;
+            outline: none;
+            background: rgba(255,255,255,.045);
+            color: var(--white);
+            font: inherit;
+            font-size: 12px;
+        }
+        .profile-field select option { background: var(--panel); }
+        .profile-field textarea { min-height: 83px; resize: vertical; line-height: 1.5; }
+        .profile-field input:focus, .profile-field select:focus, .profile-field textarea:focus, .friend-search-form input:focus { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(255,91,148,.14); }
+        .profile-field input[readonly] { color: #a69fb7; }
+        .profile-email-note, .profile-meta { margin: 12px 0 0; color: #938ba3; font-size: 9px; line-height: 1.5; }
+        .profile-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 16px; }
+        .profile-message, .friend-message { min-height: 16px; margin: 11px 0 0; color: var(--mint); font-size: 10px; line-height: 1.5; }
+        .profile-message.error, .friend-message.error { color: var(--pink-light); }
+        .profile-achievements { min-height: 145px; display: grid; place-items: center; padding: 20px; border: 1px dashed rgba(255,255,255,.15); border-radius: 13px; background: rgba(255,255,255,.025); text-align: center; }
+        .profile-achievements-icon { font-size: 30px; }
+        .profile-achievements strong { display: block; margin-top: 8px; font-size: 12px; }
+        .profile-achievements p { max-width: 290px; margin: 6px 0 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
+        .friend-search-form { display: flex; align-items: end; gap: 8px; }
+        .friend-search-form label { flex: 1; color: #e8e1ed; font-size: 10px; font-weight: 750; }
+        .friend-search-form input { display: block; }
+        .friend-search-form .button { min-height: 42px; padding: 0 13px; }
+        .friend-list { display: grid; gap: 9px; margin-top: 14px; }
+        .friend-list:empty { display: none; }
+        .friend-list-heading { margin: 18px 0 0; color: #c8c0d2; font-size: 10px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+        .friend-card { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.025); }
+        .friend-card-avatar { width: 37px; height: 37px; display: grid; flex-shrink: 0; place-items: center; border-radius: 12px; background: var(--panel-light); font-size: 21px; }
+        .friend-card-copy { min-width: 0; flex: 1; }
+        .friend-card-copy strong { display: block; overflow: hidden; color: var(--white); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+        .friend-card-copy span { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
+        .friend-card-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+        .friend-card-actions .button { min-height: 30px; padding: 0 9px; border-radius: 9px; font-size: 9px; }
+        .friend-empty { margin: 14px 0 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+        .friend-search-result { margin-top: 12px; }
+        .friend-search-result:empty { display: none; }
+        @media (max-width: 760px) {
+            .profile-page { width: min(100% - 32px, 520px); margin-top: 28px; }
+            .profile-layout { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 480px) {
+            .profile-card { padding: 16px; }
+            .profile-form-grid { grid-template-columns: 1fr; }
+            .profile-form-grid .profile-field-wide { grid-column: auto; }
+            .friend-search-form { align-items: stretch; flex-direction: column; }
+            .friend-search-form .button { width: 100%; }
+        }
         @media (max-width: 760px) {
             .login-page { grid-template-columns: 1fr; }
             .login-story { min-height: 230px; padding: 27px 24px; }
@@ -1172,6 +1241,88 @@
             </div>
         </section>
     </main>
+    <main class="profile-page" id="profile-page" aria-labelledby="profile-page-title" hidden>
+        <div class="profile-page-header">
+            <div>
+                <p class="section-kicker">YOUR MIMIPOP SPACE</p>
+                <h1 id="profile-page-title">Your profile</h1>
+                <p>Make it yours, then find your people.</p>
+            </div>
+            <a class="button button-quiet" href="index.html#games">← Back to games</a>
+        </div>
+        <div class="profile-layout">
+            <div class="profile-column">
+                <section class="profile-card" aria-labelledby="profile-edit-title">
+                    <div class="profile-card-heading">
+                        <div class="profile-avatar-preview" id="profile-avatar-preview" aria-hidden="true">✨</div>
+                        <div><h2 id="profile-edit-title">Your details</h2><p>Your profile is ready to show the MIMIPOP community.</p></div>
+                    </div>
+                    <form id="profile-form">
+                        <div class="profile-form-grid">
+                            <label class="profile-field" for="profile-name">Display name
+                                <input id="profile-name" name="name" maxlength="60" required>
+                            </label>
+                            <label class="profile-field" for="profile-avatar">Avatar
+                                <select id="profile-avatar" name="avatar">
+                                    <option value="✨">✨ Sparkle</option><option value="🌟">🌟 Star</option>
+                                    <option value="🎱">🎱 Eight ball</option><option value="🂡">🂡 Ace</option>
+                                    <option value="🟡">🟡 Gold disc</option><option value="🍾">🍾 Bubbly</option>
+                                    <option value="💎">💎 Gem</option><option value="🍒">🍒 Cherry</option>
+                                    <option value="🦋">🦋 Butterfly</option><option value="🐱">🐱 Cat</option>
+                                </select>
+                            </label>
+                            <label class="profile-field profile-field-wide" for="profile-bio">A little about you
+                                <textarea id="profile-bio" name="bio" maxlength="180" placeholder="What makes you smile?"></textarea>
+                            </label>
+                            <label class="profile-field" for="profile-favorite-game">Favorite game
+                                <select id="profile-favorite-game" name="favoriteGame">
+                                    <option value="">Choose one</option><option>Cue The Fun</option>
+                                    <option>Tongits Trio</option><option>Four Play</option>
+                                    <option>Pop The Bubbly</option><option>Swapper</option>
+                                </select>
+                            </label>
+                            <label class="profile-field" for="profile-country">Country
+                                <input id="profile-country" name="country" maxlength="56" autocomplete="country-name" placeholder="Your country">
+                            </label>
+                        </div>
+                        <p class="profile-email-note">Account email: <strong id="profile-email"></strong> · Only you can see this.</p>
+                        <div class="profile-actions">
+                            <span class="profile-meta" id="profile-member-since"></span>
+                            <button class="button button-primary" type="submit" id="profile-save">Save profile</button>
+                        </div>
+                        <p class="profile-message" id="profile-message" role="status" aria-live="polite"></p>
+                    </form>
+                </section>
+                <section class="profile-card" aria-labelledby="achievements-title">
+                    <div class="profile-card-heading">
+                        <div><p class="section-kicker">YOUR HIGHLIGHTS</p><h2 id="achievements-title">Achievements</h2></div>
+                    </div>
+                    <div class="profile-achievements">
+                        <div><span class="profile-achievements-icon" aria-hidden="true">🏆</span><strong>Your trophies will live here</strong><p>This space is ready for game achievements. Play on — we’ll add your milestones here soon.</p></div>
+                    </div>
+                </section>
+            </div>
+            <section class="profile-card" aria-labelledby="friends-title">
+                <div class="profile-card-heading">
+                    <div><p class="section-kicker">BETTER TOGETHER</p><h2 id="friends-title">Friends</h2><p>Search by someone’s exact account email. Their email stays private.</p></div>
+                </div>
+                <form class="friend-search-form" id="friend-search-form">
+                    <label for="friend-search-email">Member email
+                        <input id="friend-search-email" type="email" maxlength="254" autocomplete="off" placeholder="friend@example.com" required>
+                    </label>
+                    <button class="button button-light" type="submit">Find friend</button>
+                </form>
+                <div class="friend-search-result" id="friend-search-result" aria-live="polite"></div>
+                <p class="friend-message" id="friend-message" role="status" aria-live="polite"></p>
+                <h3 class="friend-list-heading">Requests for you</h3>
+                <div class="friend-list" id="incoming-friends"></div>
+                <h3 class="friend-list-heading">Your friends</h3>
+                <div class="friend-list" id="accepted-friends"></div>
+                <h3 class="friend-list-heading">Requests sent</h3>
+                <div class="friend-list" id="outgoing-friends"></div>
+            </section>
+        </div>
+    </main>
     <div class="billiards-modal" id="billiards-modal" role="dialog" aria-modal="true" aria-labelledby="billiards-title" aria-describedby="billiards-instructions" hidden>
         <div class="billiards-panel">
             <div class="billiards-heading">
@@ -1356,6 +1507,11 @@
         const loginName = document.querySelector("#login-name");
         const loginNameField = document.querySelector("#login-name-field");
         const loginIsRegister = requestedPage === "register";
+        const profilePage = document.querySelector("#profile-page");
+        const profileForm = document.querySelector("#profile-form");
+        const profileMessage = document.querySelector("#profile-message");
+        const friendMessage = document.querySelector("#friend-message");
+        const friendSearchResult = document.querySelector("#friend-search-result");
         let gamePageMode = false;
         const fourplayBoardElement = document.querySelector("#fourplay-board");
         const fourplayTurnElement = document.querySelector("#fourplay-turn");
@@ -2503,9 +2659,10 @@
             if (response.status === 401) return;
             if (!response.ok) throw new Error("Unable to check your sign-in status.");
             const account = await response.json();
-            const greeting = document.createElement("span");
-            greeting.className = "member-count";
-            greeting.textContent = `Hi, ${account.name}`;
+            const profileLink = document.createElement("a");
+            profileLink.className = "button button-quiet";
+            profileLink.href = "index.html?page=profile";
+            profileLink.textContent = `${account.avatar} ${account.name}`;
             const logout = document.createElement("button");
             logout.className = "button button-quiet";
             logout.type = "button";
@@ -2526,8 +2683,233 @@
                     logout.disabled = false;
                 }
             });
-            document.querySelector("#account-actions").replaceChildren(greeting, logout);
+            document.querySelector("#account-actions").replaceChildren(profileLink, logout);
         }
+
+        async function apiRequest(url, { method = "GET", body } = {}) {
+            const headers = { Accept: "application/json" };
+            const options = { method, credentials: "same-origin", headers };
+            if (method !== "GET") headers["X-CSRF-TOKEN"] = await getCsrfToken();
+            if (body !== undefined) {
+                headers["Content-Type"] = "application/json";
+                options.body = JSON.stringify(body);
+            }
+
+            const response = await fetch(url, options);
+            if (response.status === 401) {
+                window.location.assign("index.html?page=login");
+                throw new Error("Please sign in to continue.");
+            }
+            if (response.status === 204) return null;
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.title || "That request couldn’t be completed.");
+            return result;
+        }
+
+        function setProfileMessage(element, message, isError = false) {
+            element.textContent = message;
+            element.classList.toggle("error", isError);
+        }
+
+        async function loadProfilePage() {
+            document.body.classList.add("profile-page-mode");
+            profilePage.hidden = false;
+            document.title = "Your profile — MIMIPOP";
+            try {
+                const profile = await apiRequest("/api/profile");
+                document.querySelector("#profile-name").value = profile.name;
+                document.querySelector("#profile-avatar").value = profile.avatar;
+                document.querySelector("#profile-bio").value = profile.bio;
+                document.querySelector("#profile-favorite-game").value = profile.favoriteGame;
+                document.querySelector("#profile-country").value = profile.country;
+                document.querySelector("#profile-email").textContent = profile.email;
+                document.querySelector("#profile-avatar-preview").textContent = profile.avatar;
+                document.querySelector("#profile-member-since").textContent =
+                    `Member since ${new Date(profile.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}`;
+                await Promise.all([refreshAccountActions(), loadFriends()]);
+            } catch (error) {
+                if (!window.location.href.includes("page=login")) {
+                    setProfileMessage(profileMessage, error instanceof TypeError ? "MIMIPOP couldn’t reach the account service." : error.message, true);
+                }
+            }
+        }
+
+        async function loadFriends() {
+            const relations = await apiRequest("/api/friends");
+            const lists = {
+                incoming: document.querySelector("#incoming-friends"),
+                accepted: document.querySelector("#accepted-friends"),
+                outgoing: document.querySelector("#outgoing-friends")
+            };
+            Object.values(lists).forEach((list) => list.replaceChildren());
+            const grouped = { incoming: [], accepted: [], outgoing: [] };
+            relations.forEach((relation) => {
+                if (relation.relationship === "incoming") grouped.incoming.push(relation);
+                else if (relation.relationship === "friends") grouped.accepted.push(relation);
+                else if (relation.relationship === "outgoing") grouped.outgoing.push(relation);
+            });
+
+            for (const [kind, items] of Object.entries(grouped)) {
+                if (!items.length) {
+                    const empty = document.createElement("p");
+                    empty.className = "friend-empty";
+                    empty.textContent = kind === "incoming"
+                        ? "No new requests right now."
+                        : kind === "accepted" ? "Your friend list is ready for your first connection." : "No requests sent.";
+                    lists[kind].append(empty);
+                } else {
+                    items.forEach((item) => lists[kind].append(createFriendCard(item, kind)));
+                }
+            }
+        }
+
+        function createFriendCard(item, kind, relationship = item.relationship, onRequest = null) {
+            const card = document.createElement("article");
+            card.className = "friend-card";
+            const avatar = document.createElement("span");
+            avatar.className = "friend-card-avatar";
+            avatar.setAttribute("aria-hidden", "true");
+            avatar.textContent = item.other.avatar;
+            const copy = document.createElement("div");
+            copy.className = "friend-card-copy";
+            const name = document.createElement("strong");
+            name.textContent = item.other.name;
+            const details = document.createElement("span");
+            details.textContent = [item.other.favoriteGame, item.other.country].filter(Boolean).join(" · ") || "MIMIPOP member";
+            copy.append(name, details);
+            if (item.other.bio) {
+                const bio = document.createElement("span");
+                bio.textContent = item.other.bio;
+                copy.append(bio);
+            }
+            card.append(avatar, copy);
+
+            const actions = document.createElement("div");
+            actions.className = "friend-card-actions";
+            const addAction = (label, action, isPrimary = false) => {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = `button ${isPrimary ? "button-primary" : "button-quiet"}`;
+                button.textContent = label;
+                button.addEventListener("click", async () => {
+                    button.disabled = true;
+                    try {
+                        if (action === "request") {
+                            if (!onRequest) throw new Error("Friend request is unavailable.");
+                            await onRequest();
+                            button.disabled = false;
+                            return;
+                        }
+                        if (action === "remove" && !window.confirm(`Remove ${item.other.name} from your friends?`)) {
+                            button.disabled = false;
+                            return;
+                        }
+                        const url = action === "remove"
+                            ? `/api/friends/${encodeURIComponent(item.other.id)}`
+                            : `/api/friends/requests/${encodeURIComponent(item.id)}/${action}`;
+                        await apiRequest(url, { method: action === "remove" ? "DELETE" : "POST" });
+                        friendSearchResult.replaceChildren();
+                        setProfileMessage(friendMessage, action === "accept" ? "You’re friends now!" : "Friend list updated.");
+                        await loadFriends();
+                    } catch (error) {
+                        setProfileMessage(friendMessage, error instanceof TypeError ? "MIMIPOP couldn’t reach the account service." : error.message, true);
+                        button.disabled = false;
+                    }
+                });
+                actions.append(button);
+            };
+
+            if (kind === "incoming") {
+                addAction("Accept", "accept", true);
+                addAction("Decline", "decline");
+            } else if (kind === "outgoing") {
+                addAction("Cancel", "cancel");
+            } else if (kind === "accepted") {
+                addAction("Remove", "remove");
+            } else if (relationship === "none") {
+                addAction("Add friend", "request", true);
+            } else if (relationship === "incoming") {
+                const incoming = document.createElement("span");
+                incoming.className = "friend-card-copy";
+                incoming.textContent = "They sent you a request";
+                actions.append(incoming);
+            } else {
+                const state = document.createElement("span");
+                state.className = "friend-card-copy";
+                state.textContent = relationship === "friends" ? "Already friends" : "Request sent";
+                actions.append(state);
+            }
+            if (actions.childElementCount) card.append(actions);
+            return card;
+        }
+
+        async function sendFriendRequestFromSearch(email) {
+            try {
+                await apiRequest("/api/friends/requests", { method: "POST", body: { email } });
+                setProfileMessage(friendMessage, "Friend request sent!");
+                await loadFriends();
+                await searchForFriend(email);
+            } catch (error) {
+                setProfileMessage(friendMessage, error instanceof TypeError ? "MIMIPOP couldn’t reach the account service." : error.message, true);
+            }
+        }
+
+        async function searchForFriend(email) {
+            friendSearchResult.replaceChildren();
+            setProfileMessage(friendMessage, "Looking for that member…");
+            try {
+                const result = await apiRequest("/api/friends/search", {
+                    method: "POST",
+                    body: { email }
+                });
+                const card = createFriendCard(
+                    { id: "", other: result.target },
+                    "search",
+                    result.relationship,
+                    () => sendFriendRequestFromSearch(email)
+                );
+                friendSearchResult.append(card);
+                setProfileMessage(friendMessage, "");
+            } catch (error) {
+                setProfileMessage(friendMessage, error instanceof TypeError ? "MIMIPOP couldn’t reach the account service." : error.message, true);
+            }
+        }
+
+        profileForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const saveButton = document.querySelector("#profile-save");
+            saveButton.disabled = true;
+            setProfileMessage(profileMessage, "Saving your profile…");
+            try {
+                const profile = await apiRequest("/api/profile", {
+                    method: "PUT",
+                    body: {
+                        name: document.querySelector("#profile-name").value,
+                        avatar: document.querySelector("#profile-avatar").value,
+                        bio: document.querySelector("#profile-bio").value,
+                        favoriteGame: document.querySelector("#profile-favorite-game").value,
+                        country: document.querySelector("#profile-country").value
+                    }
+                });
+                document.querySelector("#profile-avatar-preview").textContent = profile.avatar;
+                setProfileMessage(profileMessage, "Profile saved!");
+                await refreshAccountActions();
+            } catch (error) {
+                setProfileMessage(profileMessage, error instanceof TypeError ? "MIMIPOP couldn’t reach the account service." : error.message, true);
+            } finally {
+                saveButton.disabled = false;
+            }
+        });
+
+        document.querySelector("#profile-avatar").addEventListener("change", (event) => {
+            document.querySelector("#profile-avatar-preview").textContent = event.currentTarget.value;
+        });
+
+        document.querySelector("#friend-search-form").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            await searchForFriend(document.querySelector("#friend-search-email").value);
+        });
 
         function configureLoginPage() {
             document.body.classList.add("login-page-mode");
@@ -2579,6 +2961,8 @@
             selectedGamePage.open();
         } else if (requestedPage === "login" || requestedPage === "register") {
             configureLoginPage();
+        } else if (requestedPage === "profile") {
+            loadProfilePage();
         }
         powerSlider.addEventListener("input", () => {
             powerValue.textContent = `${powerSlider.value}%`;

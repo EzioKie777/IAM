@@ -32,6 +32,13 @@ The included launch profile runs the local server in Development mode at `http:/
 
 Passwords are stored as salted PBKDF2-SHA256 hashes, never as plain text. Authentication uses protected, HTTP-only cookies; form submissions use antiforgery tokens, and login/registration attempts are rate-limited. Accounts are created directly on registration.
 
+## Profiles and friends
+
+- Signed-in members can open **My profile** from the account header to edit their display name, avatar, short bio, favorite game, and country.
+- Members can search for another account by its exact email address and send a friend request. Search results and friend cards never return or display the other member's email.
+- Friend requests can be accepted, declined, or cancelled. Accepted friends can be removed later. Profile and friendship data are stored in the `users` and `friendships` collections.
+- The achievements panel is a visual placeholder; game achievements are not stored yet.
+
 ## Deployment notes
 
 - Set `MONGODB_URI` and optionally `MONGODB_DATABASE` as server environment variables in production. Do not use a committed `.env` file.
