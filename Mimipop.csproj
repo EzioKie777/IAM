@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>MIMIPOP-local-development</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MongoDB.Driver" Version="3.13.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="index.html" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
