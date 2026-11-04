@@ -28,7 +28,7 @@ dotnet restore
 dotnet run --project Mimipop.csproj
 ```
 
-Open the local URL printed by `dotnet run`. Use **Join the club** to create an account, then log in. The backend serves the site and same-origin `/api/auth/*` endpoints.
+The included launch profile runs the local server in Development mode at `http://127.0.0.1:5187`, which permits the development cookies over localhost HTTP. Open that URL and use **Join the club** to create an account, then log in. The backend serves the site and same-origin `/api/auth/*` endpoints.
 
 Passwords are stored as salted PBKDF2-SHA256 hashes, never as plain text. Authentication uses protected, HTTP-only cookies; form submissions use antiforgery tokens, and login/registration attempts are rate-limited. Accounts are created directly on registration.
 
