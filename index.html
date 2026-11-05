@@ -508,6 +508,101 @@
         .power-control { display: flex; align-items: center; gap: 9px; color: #c9c2d4; font-size: 11px; }
         .power-control input { width: 112px; accent-color: var(--pink); }
         .billiards-help { margin: 12px 0 0; color: #938ba3; font-size: 10px; line-height: 1.5; }
+        .cue-mode-picker {
+            display: grid;
+            gap: 18px;
+            margin: 24px auto 0;
+            max-width: 720px;
+            padding: 22px;
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 17px;
+            background: rgba(255,255,255,.035);
+        }
+        .cue-mode-picker[hidden], .cue-practice-view[hidden], .cue-matchmaking[hidden] { display: none !important; }
+        .cue-mode-picker h3 { margin: 0; font-size: 20px; }
+        .cue-mode-picker > div:first-child p:last-child { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+        .cue-mode-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        .cue-mode-option {
+            display: grid;
+            align-content: start;
+            gap: 8px;
+            min-height: 138px;
+            padding: 16px;
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 13px;
+            background: #211b32;
+            color: var(--white);
+            text-align: left;
+            cursor: pointer;
+            transition: border-color .2s ease, transform .2s ease, background .2s ease;
+        }
+        .cue-mode-option:hover, .cue-mode-option:focus-visible {
+            border-color: var(--pink);
+            background: #2a203b;
+            transform: translateY(-2px);
+        }
+        .cue-mode-option strong { font-size: 14px; }
+        .cue-mode-option span:last-child { color: var(--muted); font-size: 11px; line-height: 1.45; }
+        .cue-mode-icon { font-size: 23px; }
+        .cue-mode-back { justify-self: start; }
+        @media (max-width: 640px) {
+            .cue-mode-options { grid-template-columns: 1fr; }
+            .cue-mode-option { min-height: 0; }
+        }
+        .cue-matchmaking {
+            display: grid;
+            gap: 14px;
+            margin-top: 20px;
+            padding: 18px;
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 15px;
+            background: rgba(255,255,255,.035);
+        }
+        .cue-matchmaking h3 { margin: 0; font-size: 16px; }
+        .cue-matchmaking p { margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+        .cue-match-actions, .cue-invite-form { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+        .cue-invite-form select {
+            min-width: min(230px, 100%);
+            min-height: 40px;
+            padding: 0 12px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #211b32;
+            color: var(--white);
+            font: inherit;
+        }
+        .cue-match-status { min-height: 17px; color: #d7d1e0 !important; }
+        .cue-match-status.error { color: #ff9aaf !important; }
+        .cue-match-card, .cue-invitation-card {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 12px;
+            background: rgba(255,255,255,.035);
+        }
+        .cue-match-player { display: flex; align-items: center; gap: 10px; }
+        .cue-match-avatar { font-size: 25px; }
+        .cue-match-player span:last-child { display: grid; gap: 3px; }
+        .cue-match-player small { color: var(--muted); }
+        .cue-invitation-list { display: grid; gap: 8px; }
+        .cue-invitation-list:empty { display: none; }
+        .cue-invitation-title { color: #c9c2d4; font-size: 11px; font-weight: 800; }
+        .cue-matchmaking [hidden] { display: none !important; }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
         body.game-open { overflow: hidden; }
         .tongits-table {
             display: grid;
@@ -1333,17 +1428,74 @@
                 </div>
                 <button class="billiards-close" type="button" aria-label="Back to all games" data-close-game>← Games</button>
             </div>
-            <div class="billiards-canvas-wrap">
-                <canvas id="billiards-canvas" width="900" height="480" tabindex="0" aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Space" aria-label="Billiards table. Aim with your pointer and click to shoot, or use the arrow keys and space bar."></canvas>
-            </div>
-            <div class="billiards-toolbar">
-                <div class="billiards-status" aria-live="polite"><strong id="billiards-score">0 / 10 pocketed</strong><span> · </span><span id="billiards-message">Aim and click the table to shoot.</span></div>
-                <div class="billiards-controls">
-                    <label class="power-control" for="shot-power">Power <input id="shot-power" type="range" min="15" max="100" value="65"><span id="power-value">65%</span></label>
-                    <button class="button button-primary" type="button" id="rack-balls">Rack again</button>
+            <section class="cue-mode-picker" id="cue-mode-picker" aria-labelledby="cue-mode-title">
+                <div>
+                    <p class="section-kicker">CHOOSE YOUR GAME</p>
+                    <h3 id="cue-mode-title">How do you want to play?</h3>
+                    <p>Choose a mode to continue.</p>
                 </div>
-            </div>
-            <p class="billiards-help" id="billiards-instructions">Move your pointer to aim, then click or tap the table to shoot. Keyboard players can use the arrow keys to aim and space to shoot. Pocket all 10 balls to clear the rack.</p>
+                <div class="cue-mode-options">
+                    <button class="cue-mode-option" type="button" data-cue-mode="practice">
+                        <span class="cue-mode-icon" aria-hidden="true">🎯</span>
+                        <strong>Practice</strong>
+                        <span>Play solo and clear the rack at your own pace.</span>
+                    </button>
+                    <button class="cue-mode-option" type="button" data-cue-mode="classic">
+                        <span class="cue-mode-icon" aria-hidden="true">🎱</span>
+                        <strong>Classic · Find Match</strong>
+                        <span>Queue up and get paired with another player.</span>
+                    </button>
+                    <button class="cue-mode-option" type="button" data-cue-mode="custom">
+                        <span class="cue-mode-icon" aria-hidden="true">🤝</span>
+                        <strong>Custom</strong>
+                        <span>Challenge one of your friends to a private duel.</span>
+                    </button>
+                </div>
+            </section>
+            <section class="cue-practice-view" id="cue-practice-view" hidden>
+                <button class="button button-quiet cue-mode-back" type="button" data-cue-change-mode>← Change mode</button>
+                <div class="billiards-canvas-wrap">
+                    <canvas id="billiards-canvas" width="900" height="480" tabindex="0" aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Space" aria-label="Billiards table. Aim with your pointer and click to shoot, or use the arrow keys and space bar."></canvas>
+                </div>
+                <div class="billiards-toolbar">
+                    <div class="billiards-status" aria-live="polite"><strong id="billiards-score">0 / 10 pocketed</strong><span> · </span><span id="billiards-message">Aim and click the table to shoot.</span></div>
+                    <div class="billiards-controls">
+                        <label class="power-control" for="shot-power">Power <input id="shot-power" type="range" min="15" max="100" value="65"><span id="power-value">65%</span></label>
+                        <button class="button button-primary" type="button" id="rack-balls">Rack again</button>
+                    </div>
+                </div>
+                <p class="billiards-help" id="billiards-instructions">Move your pointer to aim, then click or tap the table to shoot. Keyboard players can use the arrow keys to aim and space to shoot. Pocket all 10 balls to clear the rack.</p>
+            </section>
+            <section class="cue-matchmaking" id="cue-matchmaking" aria-labelledby="cue-matchmaking-title" hidden>
+                <button class="button button-quiet cue-mode-back" type="button" data-cue-change-mode>← Change mode</button>
+                <div>
+                    <p class="section-kicker">PLAY TOGETHER</p>
+                    <h3 id="cue-matchmaking-title">Find a matchup</h3>
+                    <p id="cue-match-description">Queue up and get paired with another player.</p>
+                </div>
+                <p class="cue-match-status" id="cue-match-status" role="status" aria-live="polite">Checking your sign-in…</p>
+                <div class="cue-match-actions" id="cue-classic-actions">
+                    <button class="button button-primary" type="button" id="cue-queue-button" disabled>Find a match</button>
+                    <button class="button button-quiet" type="button" id="cue-cancel-queue" hidden>Cancel search</button>
+                    <a class="button button-light" href="index.html?page=login" id="cue-sign-in" hidden>Sign in to match</a>
+                </div>
+                <div class="cue-match-card" id="cue-match-card" hidden>
+                    <div class="cue-match-player">
+                        <span class="cue-match-avatar" id="cue-match-avatar" aria-hidden="true"></span>
+                        <span><strong id="cue-match-name"></strong><small id="cue-match-mode"></small></span>
+                    </div>
+                    <button class="button button-quiet" type="button" id="cue-leave-match">Leave match</button>
+                </div>
+                <div class="cue-invite-form" id="cue-invite-form" hidden>
+                    <label class="sr-only" for="cue-friend-select">Choose a friend to challenge</label>
+                    <select id="cue-friend-select" aria-label="Choose a friend to challenge" disabled>
+                        <option value="">Loading friends…</option>
+                    </select>
+                    <button class="button button-light" type="button" id="cue-invite-button" disabled>Challenge friend</button>
+                </div>
+                <div class="cue-invitation-list" id="cue-incoming-invitations" aria-label="Incoming Cue The Fun challenges"></div>
+                <div class="cue-invitation-list" id="cue-outgoing-invitations" aria-label="Sent Cue The Fun challenges"></div>
+            </section>
         </div>
     </div>
     <div class="billiards-modal tongits-modal" id="tongits-modal" role="dialog" aria-modal="true" aria-labelledby="tongits-title" aria-describedby="tongits-instructions" hidden>
@@ -1484,6 +1636,17 @@
         const gameContext = gameCanvas.getContext("2d");
         const gameScore = document.querySelector("#billiards-score");
         const gameMessage = document.querySelector("#billiards-message");
+        const cueModePicker = document.querySelector("#cue-mode-picker");
+        const cuePracticeView = document.querySelector("#cue-practice-view");
+        const cueMatchmakingView = document.querySelector("#cue-matchmaking");
+        const cueMatchStatusElement = document.querySelector("#cue-match-status");
+        const cueQueueButton = document.querySelector("#cue-queue-button");
+        const cueCancelQueueButton = document.querySelector("#cue-cancel-queue");
+        const cueInviteButton = document.querySelector("#cue-invite-button");
+        const cueFriendSelect = document.querySelector("#cue-friend-select");
+        const cueMatchCard = document.querySelector("#cue-match-card");
+        const cueIncomingInvitations = document.querySelector("#cue-incoming-invitations");
+        const cueOutgoingInvitations = document.querySelector("#cue-outgoing-invitations");
         const tongitsModal = document.querySelector("#tongits-modal");
         const fourplayModal = document.querySelector("#fourplay-modal");
         const bubblyModal = document.querySelector("#bubbly-modal");
@@ -1535,6 +1698,12 @@
         let aim = { x: 550, y: 240 };
         let moving = false;
         let animationFrame = 0;
+        let cueMode = null;
+        let cueMatchPollTimer;
+        let cueMatchPollInFlight = false;
+        let cueMatchPollEnabled = false;
+        let cueMatchFriendsLoaded = false;
+        let cueMatchState;
         let lastGameTrigger;
         const tongitsSuits = [
             { name: "clubs", symbol: "♣", red: false },
@@ -1767,7 +1936,7 @@
         }
 
         function animateGame() {
-            if (gameModal.hidden) return;
+            if (gameModal.hidden || cueMode !== "practice") return;
             advanceBalls();
             drawTable();
             animationFrame = window.requestAnimationFrame(animateGame);
@@ -1792,10 +1961,71 @@
             lastGameTrigger = game;
             gameModal.hidden = false;
             document.body.classList.add("game-open");
-            rackBalls();
+            cueMode = null;
+            cueModePicker.hidden = false;
+            cuePracticeView.hidden = true;
+            cueMatchmakingView.hidden = true;
+            cueMatchPollEnabled = false;
+            window.clearTimeout(cueMatchPollTimer);
             window.cancelAnimationFrame(animationFrame);
-            animationFrame = window.requestAnimationFrame(animateGame);
             gameModal.querySelector("[data-close-game]").focus();
+        }
+
+        function selectCueMode(mode) {
+            cueMode = mode;
+            cueModePicker.hidden = true;
+            cuePracticeView.hidden = mode !== "practice";
+            cueMatchmakingView.hidden = mode === "practice";
+            window.cancelAnimationFrame(animationFrame);
+
+            if (mode === "practice") {
+                cueMatchPollEnabled = false;
+                window.clearTimeout(cueMatchPollTimer);
+                rackBalls();
+                animationFrame = window.requestAnimationFrame(animateGame);
+                gameCanvas.focus();
+                return;
+            }
+
+            const isCustom = mode === "custom";
+            document.querySelector("#cue-matchmaking-title").textContent =
+                isCustom ? "Custom · Friend Duel" : "Classic · Find a Match";
+            document.querySelector("#cue-match-description").textContent = isCustom
+                ? "Challenge an accepted friend to a private duel."
+                : "Queue up and get paired with another player.";
+            document.querySelector("#cue-classic-actions").hidden = isCustom;
+            document.querySelector("#cue-invite-form").hidden = !isCustom;
+            cueMatchPollEnabled = true;
+            refreshCueMatchStatus().then(() => {
+                if (mode === "classic" && cueMatchState?.state === "idle") {
+                    performCueMatchAction("/api/cue/queue", "POST");
+                }
+            });
+        }
+
+        async function changeCueMode() {
+            cueMatchPollEnabled = false;
+            window.clearTimeout(cueMatchPollTimer);
+            window.cancelAnimationFrame(animationFrame);
+            try {
+                if (cueMatchState?.state === "queued") {
+                    cueMatchState = await apiRequest("/api/cue/queue", { method: "DELETE" });
+                } else if (cueMatchState?.state === "matched") {
+                    cueMatchState = await apiRequest("/api/cue/match/leave", { method: "POST" });
+                }
+            } catch (error) {
+                setCueMatchStatus(error instanceof TypeError
+                    ? "MIMIPOP couldn’t reach the match service."
+                    : error.message, true);
+                return;
+            }
+
+            cueMode = null;
+            cueModePicker.hidden = false;
+            cuePracticeView.hidden = true;
+            cueMatchmakingView.hidden = true;
+            window.cancelAnimationFrame(animationFrame);
+            cueModePicker.querySelector("[data-cue-mode]").focus();
         }
 
         function returnFromGamePage() {
@@ -1804,11 +2034,29 @@
 
         function closeGame() {
             if (gamePageMode) {
-                returnFromGamePage();
+                const cleanupUrl = cueMatchState?.state === "queued"
+                    ? "/api/cue/queue"
+                    : cueMatchState?.state === "matched" ? "/api/cue/match/leave" : null;
+                if (!cleanupUrl) {
+                    returnFromGamePage();
+                    return;
+                }
+
+                apiRequest(cleanupUrl, { method: cueMatchState.state === "queued" ? "DELETE" : "POST" })
+                    .catch(() => showToast("Couldn’t leave the Cue The Fun match cleanly."))
+                    .finally(returnFromGamePage);
                 return;
             }
             gameModal.hidden = true;
+            cueMatchPollEnabled = false;
+            window.clearTimeout(cueMatchPollTimer);
+            if (cueMatchState && cueMatchState.state === "queued") {
+                apiRequest("/api/cue/queue", { method: "DELETE" }).catch(() => {
+                    showToast("Couldn’t cancel your Cue The Fun search.");
+                });
+            }
             if (tongitsModal.hidden && fourplayModal.hidden && bubblyModal.hidden && swapperModal.hidden) document.body.classList.remove("game-open");
+            cueMode = null;
             window.cancelAnimationFrame(animationFrame);
             if (lastGameTrigger) lastGameTrigger.focus();
         }
@@ -2549,6 +2797,37 @@
 
         document.querySelector("[data-close-game]").addEventListener("click", closeGame);
         document.querySelector("#rack-balls").addEventListener("click", rackBalls);
+        document.querySelectorAll("[data-cue-mode]").forEach((button) => {
+            button.addEventListener("click", () => selectCueMode(button.dataset.cueMode));
+        });
+        document.querySelectorAll("[data-cue-change-mode]").forEach((button) => {
+            button.addEventListener("click", changeCueMode);
+        });
+        cueQueueButton.addEventListener("click", () => {
+            performCueMatchAction("/api/cue/queue", "POST");
+        });
+        cueCancelQueueButton.addEventListener("click", () => {
+            performCueMatchAction("/api/cue/queue", "DELETE");
+        });
+        cueFriendSelect.addEventListener("change", () => {
+            cueInviteButton.disabled = !cueFriendSelect.value ||
+                Boolean(cueMatchState && cueMatchState.state !== "idle");
+        });
+        cueInviteButton.addEventListener("click", () => {
+            if (!cueFriendSelect.value) {
+                setCueMatchStatus("Choose an accepted friend to challenge.", true);
+                return;
+            }
+            performCueMatchAction(
+                "/api/cue/invitations",
+                "POST",
+                { friendId: cueFriendSelect.value },
+                "Friend challenge sent!"
+            );
+        });
+        document.querySelector("#cue-leave-match").addEventListener("click", () => {
+            performCueMatchAction("/api/cue/match/leave", "POST", undefined, "You left the match.");
+        });
         document.querySelector("[data-close-tongits]").addEventListener("click", closeTongits);
         document.querySelector("[data-close-fourplay]").addEventListener("click", closeFourPlay);
         document.querySelector("[data-close-bubbly]").addEventListener("click", closeBubbly);
@@ -2705,6 +2984,190 @@
             const result = await response.json();
             if (!response.ok) throw new Error(result.title || "That request couldn’t be completed.");
             return result;
+        }
+
+        function setCueMatchStatus(message, isError = false) {
+            cueMatchStatusElement.textContent = message;
+            cueMatchStatusElement.classList.toggle("error", isError);
+        }
+
+        async function loadCueFriends() {
+            const response = await fetch("/api/friends", {
+                credentials: "same-origin",
+                headers: { Accept: "application/json" }
+            });
+            if (!response.ok) {
+                throw new Error(response.status === 401
+                    ? "Sign in to challenge friends."
+                    : "Couldn’t load your friends for a Cue The Fun challenge.");
+            }
+
+            const relations = await response.json();
+            const friends = relations.filter((relation) => relation.relationship === "friends");
+            cueFriendSelect.replaceChildren(new Option(
+                friends.length ? "Choose a friend…" : "Add a friend to challenge",
+                ""
+            ));
+            friends.forEach((relation) => {
+                cueFriendSelect.add(new Option(`${relation.other.avatar} ${relation.other.name}`, relation.other.id));
+            });
+            cueMatchFriendsLoaded = true;
+            cueFriendSelect.disabled = friends.length === 0;
+            cueInviteButton.disabled = friends.length === 0;
+        }
+
+        function renderCueInvitationList(container, items, incoming) {
+            container.replaceChildren();
+            if (!items.length) return;
+
+            const heading = document.createElement("strong");
+            heading.className = "cue-invitation-title";
+            heading.textContent = incoming ? "Challenges for you" : "Challenges sent";
+            container.append(heading);
+            items.forEach((item) => {
+                const card = document.createElement("div");
+                card.className = "cue-invitation-card";
+                const player = document.createElement("div");
+                player.className = "cue-match-player";
+                const avatar = document.createElement("span");
+                avatar.className = "cue-match-avatar";
+                avatar.setAttribute("aria-hidden", "true");
+                avatar.textContent = item.other.avatar;
+                const name = document.createElement("strong");
+                name.textContent = incoming
+                    ? `${item.other.name} challenged you`
+                    : `Waiting for ${item.other.name}`;
+                player.append(avatar, name);
+                card.append(player);
+
+                const actions = document.createElement("div");
+                actions.className = "cue-match-actions";
+                const addButton = (label, action, primary = false) => {
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.className = `button ${primary ? "button-primary" : "button-quiet"}`;
+                    button.textContent = label;
+                    button.addEventListener("click", async () => {
+                        button.disabled = true;
+                        try {
+                            cueMatchState = await apiRequest(
+                                `/api/cue/invitations/${encodeURIComponent(item.id)}/${action}`,
+                                { method: "POST" }
+                            );
+                            renderCueMatchState(cueMatchState);
+                        } catch (error) {
+                            setCueMatchStatus(error instanceof TypeError
+                                ? "MIMIPOP couldn’t reach the match service."
+                                : error.message, true);
+                            button.disabled = false;
+                        }
+                    });
+                    actions.append(button);
+                };
+                if (incoming) {
+                    addButton("Accept", "accept", true);
+                    addButton("Decline", "decline");
+                } else {
+                    addButton("Cancel", "cancel");
+                }
+                card.append(actions);
+                container.append(card);
+            });
+        }
+
+        function renderCueMatchState(state) {
+            cueMatchState = state;
+            const incoming = state.incomingInvitations || [];
+            const outgoing = state.outgoingInvitations || [];
+            const hasPendingChallenge = incoming.length > 0 || outgoing.length > 0;
+            const busy = state.state !== "idle" || hasPendingChallenge;
+            const match = state.match;
+
+            cueMatchCard.hidden = !match;
+            if (match) {
+                document.querySelector("#cue-match-avatar").textContent = match.opponent.avatar;
+                document.querySelector("#cue-match-name").textContent = match.opponent.name;
+                document.querySelector("#cue-match-mode").textContent = match.mode === "friends"
+                    ? "Friend duel lobby · shared live shots are not connected yet"
+                    : "Public matchup lobby · shared live shots are not connected yet";
+                setCueMatchStatus(`Match found with ${match.opponent.name}!`);
+            } else if (state.state === "queued") {
+                setCueMatchStatus("Searching for another player… You can cancel any time.");
+            } else {
+                setCueMatchStatus(hasPendingChallenge
+                    ? "Respond to your pending friend challenge before entering another match."
+                    : cueMode === "custom" ? "Choose a friend to send a duel challenge."
+                        : "Choose Practice or search for a Classic match.");
+            }
+
+            cueQueueButton.disabled = busy;
+            cueQueueButton.textContent = match ? "Match found" : state.state === "queued" ? "Searching…" : "Find a match";
+            cueCancelQueueButton.hidden = state.state !== "queued";
+            cueFriendSelect.disabled = busy || cueFriendSelect.options.length <= 1;
+            cueInviteButton.disabled = busy || !cueFriendSelect.value;
+            document.querySelector("#cue-leave-match").hidden = !match;
+            renderCueInvitationList(cueIncomingInvitations, incoming, true);
+            renderCueInvitationList(cueOutgoingInvitations, outgoing, false);
+        }
+
+        async function refreshCueMatchStatus() {
+            if (!cueMatchPollEnabled || cueMatchPollInFlight) return;
+            cueMatchPollInFlight = true;
+            try {
+                const response = await fetch("/api/cue/status", {
+                    credentials: "same-origin",
+                    headers: { Accept: "application/json" }
+                });
+                if (response.status === 401) {
+                    cueMatchPollEnabled = false;
+                    document.querySelector("#cue-sign-in").hidden = false;
+                    cueQueueButton.disabled = true;
+                    cueFriendSelect.disabled = true;
+                    cueInviteButton.disabled = true;
+                    cueCancelQueueButton.hidden = true;
+                    setCueMatchStatus("Sign in to find a match or challenge friends.");
+                    return;
+                }
+                if (!response.ok) {
+                    if (response.headers.get("content-type")?.includes("json")) {
+                        const error = await response.json();
+                        throw new Error(error.title || "Couldn’t check your Cue The Fun match.");
+                    }
+                    throw new Error("Couldn’t check your Cue The Fun match.");
+                }
+
+                document.querySelector("#cue-sign-in").hidden = true;
+                renderCueMatchState(await response.json());
+                if (!cueMatchFriendsLoaded) {
+                    await loadCueFriends();
+                    renderCueMatchState(cueMatchState);
+                }
+            } catch (error) {
+                setCueMatchStatus(error instanceof TypeError
+                    ? "MIMIPOP couldn’t reach the match service."
+                    : error.message, true);
+            } finally {
+                cueMatchPollInFlight = false;
+                if (cueMatchPollEnabled && !gameModal.hidden) {
+                    cueMatchPollTimer = window.setTimeout(refreshCueMatchStatus, 3000);
+                }
+            }
+        }
+
+        async function performCueMatchAction(url, method, body, successMessage) {
+            cueQueueButton.disabled = true;
+            cueInviteButton.disabled = true;
+            try {
+                const status = await apiRequest(url, { method, body });
+                renderCueMatchState(status);
+                if (successMessage) setCueMatchStatus(successMessage);
+            } catch (error) {
+                setCueMatchStatus(error instanceof TypeError
+                    ? "MIMIPOP couldn’t reach the match service."
+                    : error.message, true);
+                cueQueueButton.disabled = false;
+                cueInviteButton.disabled = false;
+            }
         }
 
         function setProfileMessage(element, message, isError = false) {

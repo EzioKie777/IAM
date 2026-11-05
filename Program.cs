@@ -108,9 +108,20 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
+    options.AddPolicy("matchmaking", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 240,
+                Window = TimeSpan.FromMinutes(3),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
 });
 builder.Services.AddSingleton(users);
 builder.Services.AddSingleton(friendships);
+builder.Services.AddSingleton<CueMatchmakingService>();
 
 var app = builder.Build();
 if (!app.Environment.IsDevelopment())
@@ -154,8 +165,169 @@ app.MapPost("/api/friends/requests", SendFriendRequest).RequireAuthorization().R
 app.MapPost("/api/friends/requests/{requestId}/{action}", RespondToFriendRequest)
     .RequireAuthorization().RequireRateLimiting("social");
 app.MapDelete("/api/friends/{friendId}", RemoveFriend).RequireAuthorization().RequireRateLimiting("social");
+app.MapGet("/api/cue/status", (ClaimsPrincipal principal, CueMatchmakingService matchmaker) =>
+{
+    return TryGetUserId(principal, out var userId)
+        ? Results.Ok(matchmaker.GetStatus(userId))
+        : Results.Unauthorized();
+}).RequireAuthorization().RequireRateLimiting("matchmaking");
+app.MapPost("/api/cue/queue", JoinCueQueue).RequireAuthorization().RequireRateLimiting("social");
+app.MapDelete("/api/cue/queue", CancelCueQueue).RequireAuthorization().RequireRateLimiting("social");
+app.MapPost("/api/cue/invitations", InviteCueFriend).RequireAuthorization().RequireRateLimiting("social");
+app.MapPost("/api/cue/invitations/{invitationId}/{action}", RespondToCueInvitation)
+    .RequireAuthorization().RequireRateLimiting("social");
+app.MapPost("/api/cue/match/leave", LeaveCueMatch).RequireAuthorization().RequireRateLimiting("social");
 
 app.Run();
+
+async Task<IResult> JoinCueQueue(
+    ClaimsPrincipal principal,
+    HttpContext context,
+    IAntiforgery antiforgery,
+    CueMatchmakingService matchmaker,
+    CancellationToken cancellationToken)
+{
+    if (!await HasValidAntiforgeryToken(context, antiforgery))
+    {
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Refresh the page and try again.");
+    }
+
+    if (!TryGetUserId(principal, out var userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    var user = await users.Find(account => account.Id == userId).FirstOrDefaultAsync(cancellationToken);
+    if (user is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    var result = matchmaker.JoinQueue(new CuePlayer(user.Id, user.Name, user.Avatar));
+    return result.Success
+        ? Results.Ok(result.Status)
+        : Results.Conflict(new { title = result.Error });
+}
+
+async Task<IResult> CancelCueQueue(
+    ClaimsPrincipal principal,
+    HttpContext context,
+    IAntiforgery antiforgery,
+    CueMatchmakingService matchmaker)
+{
+    if (!await HasValidAntiforgeryToken(context, antiforgery))
+    {
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Refresh the page and try again.");
+    }
+
+    if (!TryGetUserId(principal, out var userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    return Results.Ok(matchmaker.CancelQueue(userId));
+}
+
+async Task<IResult> InviteCueFriend(
+    CueInviteRequest request,
+    ClaimsPrincipal principal,
+    HttpContext context,
+    IAntiforgery antiforgery,
+    CueMatchmakingService matchmaker,
+    CancellationToken cancellationToken)
+{
+    if (!await HasValidAntiforgeryToken(context, antiforgery))
+    {
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Refresh the page and try again.");
+    }
+
+    if (!TryGetUserId(principal, out var userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    if (!ObjectId.TryParse(request.FriendId, out var friendId) || friendId == userId)
+    {
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Choose a valid friend.");
+    }
+
+    var (lowId, highId) = OrderIds(userId, friendId);
+    var friendship = await friendships.Find(item =>
+        item.UserLowId == lowId &&
+        item.UserHighId == highId &&
+        item.Status == FriendshipStatus.Accepted).FirstOrDefaultAsync(cancellationToken);
+    if (friendship is null)
+    {
+        return Results.NotFound(new { title = "Cue The Fun challenges are only available with accepted friends." });
+    }
+
+    var usersToInvite = await users.Find(account => account.Id == friendId || account.Id == userId)
+        .ToListAsync(cancellationToken);
+    var caller = usersToInvite.FirstOrDefault(account => account.Id == userId);
+    var target = usersToInvite.FirstOrDefault(account => account.Id == friendId);
+    if (caller is null || target is null)
+    {
+        return Results.NotFound(new { title = "That friend could not be found." });
+    }
+
+    var result = matchmaker.Invite(
+        new CuePlayer(caller.Id, caller.Name, caller.Avatar),
+        new CuePlayer(target.Id, target.Name, target.Avatar));
+    return result.Success
+        ? Results.Ok(result.Status)
+        : Results.Conflict(new { title = result.Error });
+}
+
+async Task<IResult> RespondToCueInvitation(
+    string invitationId,
+    string action,
+    ClaimsPrincipal principal,
+    HttpContext context,
+    IAntiforgery antiforgery,
+    CueMatchmakingService matchmaker)
+{
+    if (!await HasValidAntiforgeryToken(context, antiforgery))
+    {
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Refresh the page and try again.");
+    }
+
+    if (!TryGetUserId(principal, out var userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    if (action is not ("accept" or "decline" or "cancel"))
+    {
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Choose a valid invitation action.");
+    }
+
+    var result = matchmaker.RespondToInvitation(userId, invitationId, action);
+    if (!result.Success)
+    {
+        return Results.Conflict(new { title = result.Error });
+    }
+
+    return Results.Ok(result.Status);
+}
+
+async Task<IResult> LeaveCueMatch(
+    ClaimsPrincipal principal,
+    HttpContext context,
+    IAntiforgery antiforgery,
+    CueMatchmakingService matchmaker)
+{
+    if (!await HasValidAntiforgeryToken(context, antiforgery))
+    {
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Refresh the page and try again.");
+    }
+
+    if (!TryGetUserId(principal, out var userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    return Results.Ok(matchmaker.LeaveMatch(userId));
+}
 
 async Task<IResult> GetCurrentUser(ClaimsPrincipal principal, CancellationToken cancellationToken)
 {
@@ -243,11 +415,19 @@ async Task<IResult> Login(LoginRequest request, HttpContext context, IAntiforger
     return Results.Ok(ToAccountResponse(user));
 }
 
-async Task<IResult> Logout(HttpContext context, IAntiforgery antiforgery)
+async Task<IResult> Logout(
+    HttpContext context,
+    IAntiforgery antiforgery,
+    CueMatchmakingService matchmaker)
 {
     if (!await HasValidAntiforgeryToken(context, antiforgery))
     {
         return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Refresh the page and try again.");
+    }
+
+    if (TryGetUserId(context.User, out var userId))
+    {
+        matchmaker.RemoveUser(userId);
     }
 
     await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -650,6 +830,274 @@ public sealed record RegisterRequest(string? Name, string? Email, string? Passwo
 public sealed record LoginRequest(string? Email, string? Password, bool RememberMe);
 public sealed record ProfileUpdateRequest(string? Name, string? Avatar, string? Bio, string? FavoriteGame, string? Country);
 public sealed record FriendRequestCreate(string? Email);
+public sealed record CueInviteRequest(string? FriendId);
+
+public sealed record CuePlayer(ObjectId Id, string Name, string Avatar);
+public sealed record CuePlayerResponse(string Id, string Name, string Avatar);
+public sealed record CueMatchSummary(string Id, string Mode, CuePlayerResponse Opponent);
+public sealed record CueInvitationSummary(string Id, CuePlayerResponse Other);
+public sealed record CueMatchmakingStatus(
+    string State,
+    CueMatchSummary? Match,
+    IReadOnlyList<CueInvitationSummary> IncomingInvitations,
+    IReadOnlyList<CueInvitationSummary> OutgoingInvitations);
+public sealed record CueOperationResult(bool Success, string? Error, CueMatchmakingStatus Status);
+
+public sealed class CueMatchmakingService
+{
+    private static readonly TimeSpan QueueLifetime = TimeSpan.FromMinutes(3);
+    private static readonly TimeSpan InvitationLifetime = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan MatchLifetime = TimeSpan.FromHours(1);
+    private readonly object gate = new();
+    private readonly Dictionary<ObjectId, CueQueueEntry> queue = [];
+    private readonly Dictionary<Guid, CueInvitation> invitations = [];
+    private readonly Dictionary<Guid, CueMatch> matches = [];
+    private readonly Dictionary<ObjectId, Guid> activeMatches = [];
+
+    public CueMatchmakingStatus GetStatus(ObjectId userId)
+    {
+        lock (gate)
+        {
+            CleanupExpired();
+            return BuildStatus(userId);
+        }
+    }
+
+    public CueOperationResult JoinQueue(CuePlayer player)
+    {
+        lock (gate)
+        {
+            CleanupExpired();
+            if (activeMatches.ContainsKey(player.Id))
+            {
+                return Failure(player.Id, "You are already in a Cue The Fun match.");
+            }
+
+            if (invitations.Values.Any(invitation =>
+                invitation.From.Id == player.Id || invitation.To.Id == player.Id))
+            {
+                return Failure(player.Id, "Resolve your pending friend challenge before joining the queue.");
+            }
+
+            if (queue.ContainsKey(player.Id))
+            {
+                return Success(player.Id);
+            }
+
+            var opponent = queue.Values
+                .Where(entry => entry.Player.Id != player.Id)
+                .OrderBy(entry => entry.QueuedAt)
+                .FirstOrDefault();
+            if (opponent is null)
+            {
+                queue[player.Id] = new CueQueueEntry(player, DateTime.UtcNow);
+            }
+            else
+            {
+                queue.Remove(opponent.Player.Id);
+                CreateMatch(player, opponent.Player, "public");
+            }
+
+            return Success(player.Id);
+        }
+    }
+
+    public CueMatchmakingStatus CancelQueue(ObjectId userId)
+    {
+        lock (gate)
+        {
+            CleanupExpired();
+            queue.Remove(userId);
+            return BuildStatus(userId);
+        }
+    }
+
+    public CueOperationResult Invite(CuePlayer sender, CuePlayer recipient)
+    {
+        lock (gate)
+        {
+            CleanupExpired();
+            if (IsBusy(sender.Id) || IsBusy(recipient.Id))
+            {
+                return Failure(sender.Id, "You or your friend already has an active match, queue spot, or challenge.");
+            }
+
+            var invitation = new CueInvitation(Guid.NewGuid(), sender, recipient, DateTime.UtcNow);
+            invitations.Add(invitation.Id, invitation);
+            return Success(sender.Id);
+        }
+    }
+
+    public CueOperationResult RespondToInvitation(ObjectId userId, string invitationId, string action)
+    {
+        lock (gate)
+        {
+            CleanupExpired();
+            if (!Guid.TryParse(invitationId, out var id) || !invitations.TryGetValue(id, out var invitation))
+            {
+                return Failure(userId, "That challenge has expired or was already handled.");
+            }
+
+            if (action == "cancel")
+            {
+                if (invitation.From.Id != userId)
+                {
+                    return Failure(userId, "Only the player who sent the challenge can cancel it.");
+                }
+
+                invitations.Remove(id);
+                return Success(userId);
+            }
+
+            if (invitation.To.Id != userId)
+            {
+                return Failure(userId, "That challenge is not addressed to you.");
+            }
+
+            if (action == "decline")
+            {
+                invitations.Remove(id);
+                return Success(userId);
+            }
+
+            if (IsBusy(invitation.From.Id, id) || IsBusy(invitation.To.Id, id))
+            {
+                invitations.Remove(id);
+                return Failure(userId, "A player is no longer available for this challenge.");
+            }
+
+            invitations.Remove(id);
+            CreateMatch(invitation.From, invitation.To, "friends");
+            return Success(userId);
+        }
+    }
+
+    public CueMatchmakingStatus LeaveMatch(ObjectId userId)
+    {
+        lock (gate)
+        {
+            CleanupExpired();
+            if (activeMatches.TryGetValue(userId, out var matchId) &&
+                matches.Remove(matchId, out var match))
+            {
+                activeMatches.Remove(match.First.Id);
+                activeMatches.Remove(match.Second.Id);
+            }
+
+            return BuildStatus(userId);
+        }
+    }
+
+    public void RemoveUser(ObjectId userId)
+    {
+        lock (gate)
+        {
+            CleanupExpired();
+            queue.Remove(userId);
+            foreach (var invitationId in invitations.Values
+                .Where(invitation => invitation.From.Id == userId || invitation.To.Id == userId)
+                .Select(invitation => invitation.Id)
+                .ToArray())
+            {
+                invitations.Remove(invitationId);
+            }
+
+            if (activeMatches.TryGetValue(userId, out var matchId) &&
+                matches.Remove(matchId, out var match))
+            {
+                activeMatches.Remove(match.First.Id);
+                activeMatches.Remove(match.Second.Id);
+            }
+        }
+    }
+
+    private void CreateMatch(CuePlayer first, CuePlayer second, string mode)
+    {
+        var match = new CueMatch(Guid.NewGuid(), first, second, mode, DateTime.UtcNow);
+        matches.Add(match.Id, match);
+        activeMatches[first.Id] = match.Id;
+        activeMatches[second.Id] = match.Id;
+    }
+
+    private bool IsBusy(ObjectId userId, Guid? ignoredInvitation = null) =>
+        queue.ContainsKey(userId) ||
+        activeMatches.ContainsKey(userId) ||
+        invitations.Values.Any(invitation =>
+            invitation.Id != ignoredInvitation &&
+            (invitation.From.Id == userId || invitation.To.Id == userId));
+
+    private CueMatchmakingStatus BuildStatus(ObjectId userId)
+    {
+        CueMatchSummary? matchSummary = null;
+        if (activeMatches.TryGetValue(userId, out var matchId) && matches.TryGetValue(matchId, out var match))
+        {
+            var opponent = match.First.Id == userId ? match.Second : match.First;
+            matchSummary = new CueMatchSummary(
+                match.Id.ToString("D"),
+                match.Mode,
+                ToCuePlayerResponse(opponent));
+        }
+
+        var incoming = invitations.Values
+            .Where(invitation => invitation.To.Id == userId)
+            .OrderBy(invitation => invitation.CreatedAt)
+            .Select(invitation => new CueInvitationSummary(
+                invitation.Id.ToString("D"),
+                ToCuePlayerResponse(invitation.From)))
+            .ToArray();
+        var outgoing = invitations.Values
+            .Where(invitation => invitation.From.Id == userId)
+            .OrderBy(invitation => invitation.CreatedAt)
+            .Select(invitation => new CueInvitationSummary(
+                invitation.Id.ToString("D"),
+                ToCuePlayerResponse(invitation.To)))
+            .ToArray();
+        var state = matchSummary is not null ? "matched" : queue.ContainsKey(userId) ? "queued" : "idle";
+        return new CueMatchmakingStatus(state, matchSummary, incoming, outgoing);
+    }
+
+    private CueOperationResult Success(ObjectId userId) =>
+        new(true, null, BuildStatus(userId));
+
+    private CueOperationResult Failure(ObjectId userId, string error) =>
+        new(false, error, BuildStatus(userId));
+
+    private static CuePlayerResponse ToCuePlayerResponse(CuePlayer player) =>
+        new(player.Id.ToString(), player.Name, player.Avatar);
+
+    private void CleanupExpired()
+    {
+        var now = DateTime.UtcNow;
+        foreach (var userId in queue
+            .Where(item => now - item.Value.QueuedAt > QueueLifetime)
+            .Select(item => item.Key)
+            .ToArray())
+        {
+            queue.Remove(userId);
+        }
+
+        foreach (var invitationId in invitations
+            .Where(item => now - item.Value.CreatedAt > InvitationLifetime)
+            .Select(item => item.Key)
+            .ToArray())
+        {
+            invitations.Remove(invitationId);
+        }
+
+        foreach (var match in matches.Values
+            .Where(item => now - item.CreatedAt > MatchLifetime)
+            .ToArray())
+        {
+            matches.Remove(match.Id);
+            activeMatches.Remove(match.First.Id);
+            activeMatches.Remove(match.Second.Id);
+        }
+    }
+
+    private sealed record CueQueueEntry(CuePlayer Player, DateTime QueuedAt);
+    private sealed record CueInvitation(Guid Id, CuePlayer From, CuePlayer To, DateTime CreatedAt);
+    private sealed record CueMatch(Guid Id, CuePlayer First, CuePlayer Second, string Mode, DateTime CreatedAt);
+}
 
 public enum FriendshipStatus
 {
