@@ -592,6 +592,7 @@
         .cue-invitation-list:empty { display: none; }
         .cue-invitation-title { color: #c9c2d4; font-size: 11px; font-weight: 800; }
         .cue-matchmaking [hidden] { display: none !important; }
+        .cue-practice-view [hidden] { display: none !important; }
         .sr-only {
             position: absolute;
             width: 1px;
@@ -1454,6 +1455,7 @@
             </section>
             <section class="cue-practice-view" id="cue-practice-view" hidden>
                 <button class="button button-quiet cue-mode-back" type="button" data-cue-change-mode>← Change mode</button>
+                <p class="cue-match-status" id="cue-live-status" role="status" aria-live="polite" hidden></p>
                 <div class="billiards-canvas-wrap">
                     <canvas id="billiards-canvas" width="900" height="480" tabindex="0" aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Space" aria-label="Billiards table. Aim with your pointer and click to shoot, or use the arrow keys and space bar."></canvas>
                 </div>
@@ -1484,6 +1486,7 @@
                         <span class="cue-match-avatar" id="cue-match-avatar" aria-hidden="true"></span>
                         <span><strong id="cue-match-name"></strong><small id="cue-match-mode"></small></span>
                     </div>
+                    <button class="button button-primary" type="button" id="cue-enter-match">Enter live game</button>
                     <button class="button button-quiet" type="button" id="cue-leave-match">Leave match</button>
                 </div>
                 <div class="cue-invite-form" id="cue-invite-form" hidden>
@@ -1636,6 +1639,8 @@
         const gameContext = gameCanvas.getContext("2d");
         const gameScore = document.querySelector("#billiards-score");
         const gameMessage = document.querySelector("#billiards-message");
+        const cueLiveStatusElement = document.querySelector("#cue-live-status");
+        const cueEnterMatchButton = document.querySelector("#cue-enter-match");
         const cueModePicker = document.querySelector("#cue-mode-picker");
         const cuePracticeView = document.querySelector("#cue-practice-view");
         const cueMatchmakingView = document.querySelector("#cue-matchmaking");
@@ -1699,6 +1704,12 @@
         let moving = false;
         let animationFrame = 0;
         let cueMode = null;
+        let cueLiveSocket;
+        let cueLivePlayerId;
+        let cueLiveMatchId;
+        let cueLiveTurnPlayerId;
+        let cueLiveFinished = false;
+        let cueLiveClosing = false;
         let cueMatchPollTimer;
         let cueMatchPollInFlight = false;
         let cueMatchPollEnabled = false;
@@ -1806,7 +1817,8 @@
                 ctx.stroke();
             });
 
-            if (!moving && gameModal && !gameModal.hidden) {
+            if (!moving && gameModal && !gameModal.hidden &&
+                (cueMode === "practice" || (cueMode === "live" && cueLiveTurnPlayerId === cueLivePlayerId && !cueLiveFinished))) {
                 const cue = balls.find((ball) => ball.cue);
                 if (cue) {
                     const dx = aim.x - cue.x;
@@ -1936,8 +1948,8 @@
         }
 
         function animateGame() {
-            if (gameModal.hidden || cueMode !== "practice") return;
-            advanceBalls();
+            if (gameModal.hidden || (cueMode !== "practice" && cueMode !== "live")) return;
+            if (cueMode === "practice") advanceBalls();
             drawTable();
             animationFrame = window.requestAnimationFrame(animateGame);
         }
@@ -1950,6 +1962,21 @@
             const dy = aim.y - cue.y;
             const distance = Math.hypot(dx, dy);
             if (distance < 1) return;
+            if (cueMode === "live") {
+                if (!cueLiveSocket || cueLiveSocket.readyState !== WebSocket.OPEN ||
+                    cueLiveTurnPlayerId !== cueLivePlayerId || cueLiveFinished) {
+                    return;
+                }
+                cueLiveSocket.send(JSON.stringify({
+                    type: "shot",
+                    aimX: aim.x,
+                    aimY: aim.y,
+                    power: Number(powerSlider.value)
+                }));
+                moving = true;
+                gameMessage.textContent = "Shot sent — watching the table…";
+                return;
+            }
             const speed = 3 + Number(powerSlider.value) * .105;
             cue.vx = dx / distance * speed;
             cue.vy = dy / distance * speed;
@@ -2003,12 +2030,114 @@
             });
         }
 
+        function enterCueLiveGame() {
+            const match = cueMatchState?.match;
+            if (!match) return;
+
+            cueMatchPollEnabled = false;
+            window.clearTimeout(cueMatchPollTimer);
+            cueMode = "live";
+            cueLiveMatchId = match.id;
+            cueLiveClosing = false;
+            cueModePicker.hidden = true;
+            cueMatchmakingView.hidden = true;
+            cuePracticeView.hidden = false;
+            cueLiveStatusElement.hidden = false;
+            document.querySelector("[data-cue-change-mode]").textContent = "← Leave live match";
+            document.querySelector("#rack-balls").hidden = true;
+            document.querySelector("#billiards-instructions").textContent =
+                "Aim with your pointer, then click or tap to shoot on your turn. The server keeps both tables in sync; turns alternate after each shot.";
+            cueLiveStatusElement.classList.remove("error");
+            cueLiveStatusElement.textContent = `Connecting to ${match.opponent.name}…`;
+            moving = true;
+            window.cancelAnimationFrame(animationFrame);
+            animationFrame = window.requestAnimationFrame(animateGame);
+
+            const socketScheme = window.location.protocol === "https:" ? "wss:" : "ws:";
+            cueLiveSocket = new WebSocket(
+                `${socketScheme}//${window.location.host}/api/cue/live?matchId=${encodeURIComponent(match.id)}`
+            );
+            cueLiveSocket.addEventListener("message", (event) => {
+                let message;
+                try {
+                    message = JSON.parse(event.data);
+                } catch {
+                    setCueLiveStatus("The live table sent an unreadable update.", true);
+                    return;
+                }
+
+                if (message.type === "error") {
+                    moving = false;
+                    gameMessage.textContent = message.message;
+                } else if (message.type === "state") {
+                    renderCueLiveState(message);
+                }
+            });
+            cueLiveSocket.addEventListener("open", () => {
+                setCueLiveStatus(`Connected to ${match.opponent.name}. Loading the shared table…`);
+            });
+            cueLiveSocket.addEventListener("close", () => {
+                if (cueLiveClosing || cueMode !== "live") return;
+                moving = true;
+                setCueLiveStatus("Connection to the live table was lost. Return to the game menu and rejoin.", true);
+            });
+            cueLiveSocket.addEventListener("error", () => {
+                setCueLiveStatus("Couldn’t connect to the live table. Check the connection and try again.", true);
+            });
+        }
+
+        function setCueLiveStatus(message, isError = false) {
+            cueLiveStatusElement.textContent = message;
+            cueLiveStatusElement.classList.toggle("error", isError);
+        }
+
+        function renderCueLiveState(state) {
+            cueLivePlayerId = state.playerId;
+            cueLiveTurnPlayerId = state.turnPlayerId;
+            cueLiveFinished = state.finished;
+            balls = state.balls.map((ball) => ({
+                x: ball.x,
+                y: ball.y,
+                vx: ball.vx,
+                vy: ball.vy,
+                cue: ball.cue,
+                number: ball.number,
+                color: ball.cue ? "#fffaf4" : ballColors[ball.number - 1]
+            }));
+            const waitingForOpponent = state.connectedPlayers < 2;
+            moving = state.moving || waitingForOpponent;
+            const opponentScore = state.scores[state.opponent.id] ?? 0;
+            score = state.scores[state.playerId] ?? 0;
+            gameScore.textContent = `You ${score} · ${state.opponent.name} ${opponentScore}`;
+            gameMessage.textContent = state.finished
+                ? state.message
+                : waitingForOpponent ? `Waiting for ${state.opponent.name} to connect…`
+                    : state.moving ? "The balls are rolling…"
+                    : state.turnPlayerId === state.playerId ? "Your turn — line up a shot."
+                        : `${state.opponent.name} is lining up a shot.`;
+            setCueLiveStatus(state.finished
+                ? state.message
+                : waitingForOpponent ? `Waiting for ${state.opponent.name} to connect.`
+                    : state.turnPlayerId === state.playerId
+                    ? `Your turn against ${state.opponent.name}.`
+                    : `${state.opponent.name}’s turn.`);
+            document.querySelector("#shot-power").disabled =
+                waitingForOpponent || state.turnPlayerId !== state.playerId || state.moving || state.finished;
+            gameCanvas.setAttribute("aria-label", `Live billiards match against ${state.opponent.name}. ${gameMessage.textContent}`);
+            drawTable();
+        }
+
         async function changeCueMode() {
             cueMatchPollEnabled = false;
             window.clearTimeout(cueMatchPollTimer);
             window.cancelAnimationFrame(animationFrame);
             try {
-                if (cueMatchState?.state === "queued") {
+                if (cueMode === "live" && cueMatchState?.state === "matched") {
+                    cueLiveClosing = true;
+                    cueLiveSocket?.close(1000, "Leaving match");
+                    cueLiveSocket = undefined;
+                    await apiRequest("/api/cue/match/leave", { method: "POST" });
+                } else if (cueMatchState?.state === "queued") {
                     cueMatchState = await apiRequest("/api/cue/queue", { method: "DELETE" });
                 } else if (cueMatchState?.state === "matched") {
                     cueMatchState = await apiRequest("/api/cue/match/leave", { method: "POST" });
@@ -2021,6 +2150,16 @@
             }
 
             cueMode = null;
+            cueLiveMatchId = undefined;
+            cueLivePlayerId = undefined;
+            cueLiveTurnPlayerId = undefined;
+            cueLiveFinished = false;
+            cueLiveStatusElement.hidden = true;
+            document.querySelector("[data-cue-change-mode]").textContent = "← Change mode";
+            document.querySelector("#rack-balls").hidden = false;
+            document.querySelector("#billiards-instructions").textContent =
+                "Move your pointer to aim, then click or tap the table to shoot. Keyboard players can use the arrow keys to aim and space to shoot. Pocket all 10 balls to clear the rack.";
+            document.querySelector("#shot-power").disabled = false;
             cueModePicker.hidden = false;
             cuePracticeView.hidden = true;
             cueMatchmakingView.hidden = true;
@@ -2042,6 +2181,8 @@
                     return;
                 }
 
+                cueLiveClosing = true;
+                cueLiveSocket?.close(1000, "Leaving match");
                 apiRequest(cleanupUrl, { method: cueMatchState.state === "queued" ? "DELETE" : "POST" })
                     .catch(() => showToast("Couldn’t leave the Cue The Fun match cleanly."))
                     .finally(returnFromGamePage);
@@ -2828,6 +2969,7 @@
         document.querySelector("#cue-leave-match").addEventListener("click", () => {
             performCueMatchAction("/api/cue/match/leave", "POST", undefined, "You left the match.");
         });
+        cueEnterMatchButton.addEventListener("click", enterCueLiveGame);
         document.querySelector("[data-close-tongits]").addEventListener("click", closeTongits);
         document.querySelector("[data-close-fourplay]").addEventListener("click", closeFourPlay);
         document.querySelector("[data-close-bubbly]").addEventListener("click", closeBubbly);
@@ -3088,12 +3230,15 @@
                 document.querySelector("#cue-match-avatar").textContent = match.opponent.avatar;
                 document.querySelector("#cue-match-name").textContent = match.opponent.name;
                 document.querySelector("#cue-match-mode").textContent = match.mode === "friends"
-                    ? "Friend duel lobby · shared live shots are not connected yet"
-                    : "Public matchup lobby · shared live shots are not connected yet";
-                setCueMatchStatus(`Match found with ${match.opponent.name}!`);
+                    ? "Custom friend duel"
+                    : "Classic live match";
+                cueEnterMatchButton.hidden = false;
+                setCueMatchStatus(`Match found with ${match.opponent.name}. Enter the live table when you’re ready.`);
             } else if (state.state === "queued") {
+                cueEnterMatchButton.hidden = true;
                 setCueMatchStatus("Searching for another player… You can cancel any time.");
             } else {
+                cueEnterMatchButton.hidden = true;
                 setCueMatchStatus(hasPendingChallenge
                     ? "Respond to your pending friend challenge before entering another match."
                     : cueMode === "custom" ? "Choose a friend to send a duel challenge."

@@ -44,7 +44,8 @@ Passwords are stored as salted PBKDF2-SHA256 hashes, never as plain text. Authen
 - Cue The Fun requires players to choose a mode before entering the table: **Practice** for solo play, **Classic · Find a Match** for the public queue, or **Custom** to challenge an accepted friend.
 - Signed-in players can join a public queue or challenge an accepted friend from the Cue The Fun page. Challenges can be accepted, declined, or cancelled; queue entries expire after three minutes and challenges after two minutes.
 - Matchmaking state currently lives in the web server's memory. It is suitable for local testing and a single app instance, but restarts clear queues and matches; it is not yet a durable or multi-instance production service.
-- This first step pairs players in a match lobby. Cue The Fun's table simulation and shots are still local to each browser, so opponents are not yet playing on one synchronized table.
+- After a match is found or a friend accepts a challenge, both players can enter the shared live table. The server simulates shots, alternates turns, and streams table and score updates to both players over an authenticated WebSocket connection.
+- Live matches are also held in server memory and end when a player leaves, the rack is cleared, or the match expires. Deployments must support WebSockets and use HTTPS so browsers can connect securely.
 
 ## Deployment notes
 

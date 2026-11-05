@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using System.Text.Json;
+using System.Net.WebSockets;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
@@ -122,6 +124,8 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddSingleton(users);
 builder.Services.AddSingleton(friendships);
 builder.Services.AddSingleton<CueMatchmakingService>();
+builder.Services.AddHostedService(serviceProvider =>
+    serviceProvider.GetRequiredService<CueMatchmakingService>());
 
 var app = builder.Build();
 if (!app.Environment.IsDevelopment())
@@ -130,6 +134,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseRateLimiter();
+app.UseWebSockets();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
@@ -177,8 +182,45 @@ app.MapPost("/api/cue/invitations", InviteCueFriend).RequireAuthorization().Requ
 app.MapPost("/api/cue/invitations/{invitationId}/{action}", RespondToCueInvitation)
     .RequireAuthorization().RequireRateLimiting("social");
 app.MapPost("/api/cue/match/leave", LeaveCueMatch).RequireAuthorization().RequireRateLimiting("social");
+app.MapGet("/api/cue/live", HandleCueLiveConnection).RequireAuthorization();
 
 app.Run();
+
+async Task<IResult> HandleCueLiveConnection(
+    HttpContext context,
+    CueMatchmakingService matchmaker,
+    CancellationToken cancellationToken)
+{
+    if (!TryGetUserId(context.User, out var userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    if (!context.WebSockets.IsWebSocketRequest)
+    {
+        return Results.BadRequest();
+    }
+
+    var origin = context.Request.Headers["Origin"].ToString();
+    if (!Uri.TryCreate(origin, UriKind.Absolute, out var originUri) ||
+        originUri.Scheme is not ("http" or "https") ||
+        !string.Equals(originUri.Host, context.Request.Host.Host, StringComparison.OrdinalIgnoreCase) ||
+        (context.Request.Host.Port is int requestPort && originUri.Port != requestPort) ||
+        (context.Request.Host.Port is null && !originUri.IsDefaultPort))
+    {
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
+    }
+
+    if (!Guid.TryParse(context.Request.Query["matchId"], out var matchId) ||
+        !matchmaker.IsLiveParticipant(userId, matchId))
+    {
+        return Results.NotFound();
+    }
+
+    using var socket = await context.WebSockets.AcceptWebSocketAsync();
+    await matchmaker.RunLiveConnectionAsync(userId, matchId, socket, cancellationToken);
+    return Results.Empty;
+}
 
 async Task<IResult> JoinCueQueue(
     ClaimsPrincipal principal,
@@ -843,8 +885,9 @@ public sealed record CueMatchmakingStatus(
     IReadOnlyList<CueInvitationSummary> OutgoingInvitations);
 public sealed record CueOperationResult(bool Success, string? Error, CueMatchmakingStatus Status);
 
-public sealed class CueMatchmakingService
+public sealed class CueMatchmakingService : BackgroundService
 {
+    private static readonly JsonSerializerOptions LiveJsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly TimeSpan QueueLifetime = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan InvitationLifetime = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan MatchLifetime = TimeSpan.FromHours(1);
@@ -852,7 +895,444 @@ public sealed class CueMatchmakingService
     private readonly Dictionary<ObjectId, CueQueueEntry> queue = [];
     private readonly Dictionary<Guid, CueInvitation> invitations = [];
     private readonly Dictionary<Guid, CueMatch> matches = [];
+    private readonly Dictionary<Guid, CueLiveGame> liveGames = [];
     private readonly Dictionary<ObjectId, Guid> activeMatches = [];
+
+    public bool IsLiveParticipant(ObjectId userId, Guid matchId)
+    {
+        lock (gate)
+        {
+            CleanupExpired();
+            return matches.TryGetValue(matchId, out var match) &&
+                liveGames.ContainsKey(matchId) &&
+                (match.First.Id == userId || match.Second.Id == userId);
+        }
+    }
+
+    public async Task RunLiveConnectionAsync(
+        ObjectId userId,
+        Guid matchId,
+        WebSocket socket,
+        CancellationToken cancellationToken)
+    {
+        CueLiveConnection connection;
+        List<(CueLiveConnection Connection, object State)> connectionUpdates;
+        lock (gate)
+        {
+            if (!matches.TryGetValue(matchId, out var match) ||
+                !liveGames.TryGetValue(matchId, out var game) ||
+                (match.First.Id != userId && match.Second.Id != userId))
+            {
+                socket.Abort();
+                return;
+            }
+
+            if (game.Connections.Remove(userId, out var previousConnection))
+            {
+                previousConnection.Socket.Abort();
+            }
+
+            connection = new CueLiveConnection(userId, socket);
+            game.Connections[userId] = connection;
+            connectionUpdates = game.Connections.Values
+                .Select(client => (client, CreateLiveState(game, client.UserId)))
+                .ToList();
+        }
+
+        try
+        {
+            await Task.WhenAll(connectionUpdates.Select(item =>
+                SendLiveMessageAsync(item.Connection, item.State, cancellationToken)));
+            var buffer = new byte[2048];
+            while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
+            {
+                using var message = new MemoryStream();
+                ValueWebSocketReceiveResult result;
+                do
+                {
+                    result = await socket.ReceiveAsync(buffer.AsMemory(), cancellationToken);
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        return;
+                    }
+
+                    if (result.MessageType != WebSocketMessageType.Text ||
+                        message.Length + result.Count > 2048)
+                    {
+                        await socket.CloseAsync(
+                            result.MessageType != WebSocketMessageType.Text
+                                ? WebSocketCloseStatus.InvalidMessageType
+                                : WebSocketCloseStatus.MessageTooBig,
+                            "Only small text messages are supported.",
+                            cancellationToken);
+                        return;
+                    }
+
+                    message.Write(buffer, 0, result.Count);
+                }
+                while (!result.EndOfMessage);
+
+                await ProcessLiveMessageAsync(userId, matchId, connection, message.ToArray(), cancellationToken);
+            }
+        }
+        catch (WebSocketException)
+        {
+            if (socket.State == WebSocketState.Open)
+            {
+                socket.Abort();
+            }
+        }
+        finally
+        {
+            List<(CueLiveConnection Connection, object State)> presenceUpdates = [];
+            lock (gate)
+            {
+                if (liveGames.TryGetValue(matchId, out var game) &&
+                    game.Connections.TryGetValue(userId, out var registered) &&
+                    ReferenceEquals(registered, connection))
+                {
+                    game.Connections.Remove(userId);
+                    presenceUpdates = game.Connections.Values
+                        .Select(client => (client, CreateLiveState(game, client.UserId)))
+                        .ToList();
+                }
+            }
+
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.WhenAll(presenceUpdates.Select(item =>
+                    SendLiveMessageAsync(item.Connection, item.State, cancellationToken)));
+            }
+        }
+    }
+
+    private async Task ProcessLiveMessageAsync(
+        ObjectId userId,
+        Guid matchId,
+        CueLiveConnection connection,
+        byte[] payload,
+        CancellationToken cancellationToken)
+    {
+        CueLiveClientMessage? message;
+        try
+        {
+            message = JsonSerializer.Deserialize<CueLiveClientMessage>(payload, LiveJsonOptions);
+        }
+        catch (JsonException)
+        {
+            await SendLiveErrorAsync(connection, "That game action could not be read.", cancellationToken);
+            return;
+        }
+
+        if (message?.Type != "shot" ||
+            !float.IsFinite(message.AimX) ||
+            !float.IsFinite(message.AimY) ||
+            message.AimX is < 0 or > 900 ||
+            message.AimY is < 0 or > 480 ||
+            message.Power is < 15 or > 100)
+        {
+            await SendLiveErrorAsync(connection, "That shot is invalid.", cancellationToken);
+            return;
+        }
+
+        string? error = null;
+        lock (gate)
+        {
+            if (!matches.ContainsKey(matchId) ||
+                !liveGames.TryGetValue(matchId, out var game) ||
+                (game.Match.First.Id != userId && game.Match.Second.Id != userId))
+            {
+                error = "This billiards match is no longer available.";
+            }
+            else if (game.Finished)
+            {
+                error = "This billiards match has finished.";
+            }
+            else if (game.TurnPlayerId != userId)
+            {
+                error = "Wait for your turn before shooting.";
+            }
+            else if (game.Moving)
+            {
+                error = "Wait for the balls to stop before shooting again.";
+            }
+            else if (game.Connections.Count < 2)
+            {
+                error = "Wait for your opponent to reconnect before shooting.";
+            }
+            else if (DateTime.UtcNow - connection.LastActionAt < TimeSpan.FromMilliseconds(100))
+            {
+                error = "Wait a moment before sending another game action.";
+            }
+            else
+            {
+                connection.LastActionAt = DateTime.UtcNow;
+                var cueBall = game.Balls.FirstOrDefault(ball => ball.IsCue);
+                if (cueBall is null)
+                {
+                    error = "The cue ball is unavailable.";
+                }
+                else
+                {
+                    var deltaX = message.AimX - cueBall.X;
+                    var deltaY = message.AimY - cueBall.Y;
+                    var distance = MathF.Sqrt(deltaX * deltaX + deltaY * deltaY);
+                    if (distance < 1)
+                    {
+                        error = "Aim away from the cue ball before shooting.";
+                    }
+                    else
+                    {
+                        var speed = 3 + message.Power * .105f;
+                        cueBall.VelocityX = deltaX / distance * speed;
+                        cueBall.VelocityY = deltaY / distance * speed;
+                        game.Moving = true;
+                        game.Message = $"{GetPlayerName(game.Match, userId)} took a shot.";
+                    }
+                }
+            }
+        }
+
+        if (error is not null)
+        {
+            await SendLiveErrorAsync(connection, error, cancellationToken);
+        }
+    }
+
+    private static void AdvanceLiveGame(CueLiveGame game)
+    {
+        foreach (var ball in game.Balls.ToArray())
+            {
+                ball.X += ball.VelocityX;
+                ball.Y += ball.VelocityY;
+                ball.VelocityX *= .986f;
+                ball.VelocityY *= .986f;
+
+                var pocketed = LivePockets.Any(pocket =>
+                {
+                    var dx = ball.X - pocket.X;
+                    var dy = ball.Y - pocket.Y;
+                    return MathF.Sqrt(dx * dx + dy * dy) < 21;
+                });
+                if (pocketed)
+                {
+                    if (ball.IsCue)
+                    {
+                        ball.X = 278;
+                        ball.Y = 240;
+                        ball.VelocityX = 0;
+                        ball.VelocityY = 0;
+                        game.Message = "Scratch! The cue ball is back in play.";
+                    }
+                    else
+                    {
+                        game.Balls.Remove(ball);
+                        game.Scores[game.TurnPlayerId]++;
+                        game.Message = "Nice shot!";
+                    }
+
+                    continue;
+                }
+
+                if (ball.X < 104)
+                {
+                    ball.X = 104;
+                    ball.VelocityX = MathF.Abs(ball.VelocityX) * .82f;
+                }
+                else if (ball.X > 796)
+                {
+                    ball.X = 796;
+                    ball.VelocityX = -MathF.Abs(ball.VelocityX) * .82f;
+                }
+
+                if (ball.Y < 86)
+                {
+                    ball.Y = 86;
+                    ball.VelocityY = MathF.Abs(ball.VelocityY) * .82f;
+                }
+                else if (ball.Y > 394)
+                {
+                    ball.Y = 394;
+                    ball.VelocityY = -MathF.Abs(ball.VelocityY) * .82f;
+                }
+            }
+
+        for (var first = 0; first < game.Balls.Count; first++)
+            {
+                for (var second = first + 1; second < game.Balls.Count; second++)
+                {
+                    var a = game.Balls[first];
+                    var b = game.Balls[second];
+                    var deltaX = b.X - a.X;
+                    var deltaY = b.Y - a.Y;
+                    var distance = MathF.Sqrt(deltaX * deltaX + deltaY * deltaY);
+                    if (distance >= 26 || distance == 0)
+                    {
+                        continue;
+                    }
+
+                    var normalX = deltaX / distance;
+                    var normalY = deltaY / distance;
+                    var overlap = (26 - distance) / 2;
+                    a.X -= normalX * overlap;
+                    a.Y -= normalY * overlap;
+                    b.X += normalX * overlap;
+                    b.Y += normalY * overlap;
+                    var approach = (b.VelocityX - a.VelocityX) * normalX +
+                        (b.VelocityY - a.VelocityY) * normalY;
+                    if (approach < 0)
+                    {
+                        a.VelocityX += approach * normalX;
+                        a.VelocityY += approach * normalY;
+                        b.VelocityX -= approach * normalX;
+                        b.VelocityY -= approach * normalY;
+                    }
+                }
+            }
+
+        game.Moving = game.Balls.Any(ball =>
+                MathF.Abs(ball.VelocityX) > .08f || MathF.Abs(ball.VelocityY) > .08f);
+        if (game.Moving)
+        {
+            return;
+        }
+
+        foreach (var ball in game.Balls)
+        {
+            ball.VelocityX = 0;
+            ball.VelocityY = 0;
+        }
+
+        if (game.Balls.Count == 1)
+        {
+            game.Finished = true;
+            var firstScore = game.Scores[game.Match.First.Id];
+            var secondScore = game.Scores[game.Match.Second.Id];
+            game.Message = firstScore == secondScore
+                ? "The rack is clear — it’s a tie!"
+                : $"{GetPlayerName(game.Match, firstScore > secondScore ? game.Match.First.Id : game.Match.Second.Id)} wins!";
+            return;
+        }
+
+        game.TurnPlayerId = game.TurnPlayerId == game.Match.First.Id
+            ? game.Match.Second.Id
+            : game.Match.First.Id;
+        game.Message = $"{GetPlayerName(game.Match, game.TurnPlayerId)}’s turn.";
+    }
+
+    private static readonly (float X, float Y)[] LivePockets =
+    [
+        (83, 65), (450, 65), (817, 65),
+        (83, 415), (450, 415), (817, 415)
+    ];
+
+    private static object CreateLiveState(CueLiveGame game, ObjectId userId)
+    {
+        var opponent = game.Match.First.Id == userId ? game.Match.Second : game.Match.First;
+        return new
+        {
+                type = "state",
+                matchId = game.Match.Id.ToString("D"),
+                playerId = userId.ToString(),
+                opponent = new CuePlayerResponse(
+                    opponent.Id.ToString(),
+                    opponent.Name,
+                    opponent.Avatar),
+                balls = game.Balls.Select(ball => new
+                {
+                    cue = ball.IsCue,
+                    number = ball.Number,
+                    x = ball.X,
+                    y = ball.Y,
+                    vx = ball.VelocityX,
+                    vy = ball.VelocityY
+                }).ToArray(),
+                scores = new Dictionary<string, int>
+                {
+                    [game.Match.First.Id.ToString()] = game.Scores[game.Match.First.Id],
+                    [game.Match.Second.Id.ToString()] = game.Scores[game.Match.Second.Id]
+                },
+                turnPlayerId = game.TurnPlayerId.ToString(),
+                connectedPlayers = game.Connections.Count,
+                moving = game.Moving,
+                finished = game.Finished,
+                message = game.Message
+        };
+    }
+
+    private static string GetPlayerName(CueMatch match, ObjectId playerId) =>
+        match.First.Id == playerId ? match.First.Name : match.Second.Name;
+
+    private static async Task SendLiveErrorAsync(
+        CueLiveConnection connection,
+        string message,
+        CancellationToken cancellationToken) =>
+        await SendLiveMessageAsync(connection, new { type = "error", message }, cancellationToken);
+
+    private static async Task SendLiveMessageAsync(
+        CueLiveConnection connection,
+        object message,
+        CancellationToken cancellationToken)
+    {
+        if (connection.Socket.State != WebSocketState.Open)
+        {
+            return;
+        }
+
+        var payload = JsonSerializer.SerializeToUtf8Bytes(message, LiveJsonOptions);
+        await connection.SendLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (connection.Socket.State == WebSocketState.Open)
+            {
+                await connection.Socket.SendAsync(
+                    payload.AsMemory(),
+                    WebSocketMessageType.Text,
+                    endOfMessage: true,
+                    cancellationToken);
+            }
+        }
+        catch (WebSocketException)
+        {
+            connection.Socket.Abort();
+        }
+        finally
+        {
+            connection.SendLock.Release();
+        }
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(16), stoppingToken);
+            List<(CueLiveConnection Connection, object State)> broadcasts = [];
+            lock (gate)
+            {
+                foreach (var game in liveGames.Values)
+                {
+                    if (!game.Moving)
+                    {
+                        continue;
+                    }
+
+                    AdvanceLiveGame(game);
+                    game.TickCount++;
+                    if (game.TickCount % 3 == 0 || !game.Moving)
+                    {
+                        foreach (var connection in game.Connections.Values)
+                        {
+                            broadcasts.Add((connection, CreateLiveState(game, connection.UserId)));
+                        }
+                    }
+                }
+            }
+
+            await Task.WhenAll(broadcasts.Select(item =>
+                SendLiveMessageAsync(item.Connection, item.State, stoppingToken)));
+        }
+    }
 
     public CueMatchmakingStatus GetStatus(ObjectId userId)
     {
@@ -980,6 +1460,7 @@ public sealed class CueMatchmakingService
             if (activeMatches.TryGetValue(userId, out var matchId) &&
                 matches.Remove(matchId, out var match))
             {
+                RemoveLiveGame(match);
                 activeMatches.Remove(match.First.Id);
                 activeMatches.Remove(match.Second.Id);
             }
@@ -1005,6 +1486,7 @@ public sealed class CueMatchmakingService
             if (activeMatches.TryGetValue(userId, out var matchId) &&
                 matches.Remove(matchId, out var match))
             {
+                RemoveLiveGame(match);
                 activeMatches.Remove(match.First.Id);
                 activeMatches.Remove(match.Second.Id);
             }
@@ -1015,8 +1497,44 @@ public sealed class CueMatchmakingService
     {
         var match = new CueMatch(Guid.NewGuid(), first, second, mode, DateTime.UtcNow);
         matches.Add(match.Id, match);
+        liveGames.Add(match.Id, CreateLiveGame(match));
         activeMatches[first.Id] = match.Id;
         activeMatches[second.Id] = match.Id;
+    }
+
+    private static CueLiveGame CreateLiveGame(CueMatch match)
+    {
+        var balls = new List<CueLiveBall>
+        {
+            new(0, true, 278, 240)
+        };
+        var number = 0;
+        for (var column = 0; column < 4; column++)
+        {
+            for (var row = 0; row <= column; row++)
+            {
+                balls.Add(new CueLiveBall(
+                    ++number,
+                    false,
+                    594 + column * 28,
+                    240 + (row - column / 2f) * 29));
+            }
+        }
+
+        return new CueLiveGame(match, balls);
+    }
+
+    private void RemoveLiveGame(CueMatch match)
+    {
+        if (!liveGames.Remove(match.Id, out var game))
+        {
+            return;
+        }
+
+        foreach (var connection in game.Connections.Values)
+        {
+            connection.Socket.Abort();
+        }
     }
 
     private bool IsBusy(ObjectId userId, Guid? ignoredInvitation = null) =>
@@ -1089,6 +1607,7 @@ public sealed class CueMatchmakingService
             .ToArray())
         {
             matches.Remove(match.Id);
+            RemoveLiveGame(match);
             activeMatches.Remove(match.First.Id);
             activeMatches.Remove(match.Second.Id);
         }
@@ -1097,6 +1616,41 @@ public sealed class CueMatchmakingService
     private sealed record CueQueueEntry(CuePlayer Player, DateTime QueuedAt);
     private sealed record CueInvitation(Guid Id, CuePlayer From, CuePlayer To, DateTime CreatedAt);
     private sealed record CueMatch(Guid Id, CuePlayer First, CuePlayer Second, string Mode, DateTime CreatedAt);
+    private sealed record CueLiveClientMessage(string? Type, float AimX, float AimY, int Power);
+    private sealed class CueLiveBall(int number, bool isCue, float x, float y)
+    {
+        public int Number { get; } = number;
+        public bool IsCue { get; } = isCue;
+        public float X { get; set; } = x;
+        public float Y { get; set; } = y;
+        public float VelocityX { get; set; }
+        public float VelocityY { get; set; }
+    }
+
+    private sealed class CueLiveGame(CueMatch match, List<CueLiveBall> balls)
+    {
+        public CueMatch Match { get; } = match;
+        public List<CueLiveBall> Balls { get; } = balls;
+        public Dictionary<ObjectId, int> Scores { get; } = new()
+        {
+            [match.First.Id] = 0,
+            [match.Second.Id] = 0
+        };
+        public Dictionary<ObjectId, CueLiveConnection> Connections { get; } = [];
+        public ObjectId TurnPlayerId { get; set; } = match.First.Id;
+        public bool Moving { get; set; }
+        public bool Finished { get; set; }
+        public int TickCount { get; set; }
+        public string Message { get; set; } = $"{match.First.Name} breaks.";
+    }
+
+    private sealed class CueLiveConnection(ObjectId userId, WebSocket socket)
+    {
+        public ObjectId UserId { get; } = userId;
+        public WebSocket Socket { get; } = socket;
+        public SemaphoreSlim SendLock { get; } = new(1, 1);
+        public DateTime LastActionAt { get; set; }
+    }
 }
 
 public enum FriendshipStatus
