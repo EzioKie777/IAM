@@ -54,3 +54,14 @@ Passwords are stored as salted PBKDF2-SHA256 hashes, never as plain text. Authen
 - Configure `DATA_PROTECTION_KEY_PATH` to a persistent, private location so authentication cookies remain valid across app restarts. Protect and back up those keys.
 - Restrict the Atlas database user to the app database and use Atlas Network Access rules appropriate for the deployed host.
 - Password reset and email verification are not implemented yet; the frontend says so rather than pretending those flows work.
+
+## Frontend structure (ES modules)
+
+The site is no longer a single monolithic HTML file:
+
+- `index.html` — markup only
+- `css/styles.css` — all styles
+- `js/utils.js` — shared helpers (`showToast`, `getCsrfToken`, `apiRequest`)
+- `js/main.js` — application entry point (ES module that imports utils and runs the client)
+
+The ASP.NET app copies these files to the output directory and serves `/css/*` and `/js/*` as static assets. Open the site the same way as before (`dotnet run`); the browser loads the module graph from `js/main.js`.

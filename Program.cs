@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.FileProviders;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
@@ -148,7 +149,21 @@ app.Use(async (context, next) =>
     await next();
 });
 
-var indexPath = Path.Combine(AppContext.BaseDirectory, "index.html");
+var webRoot = AppContext.BaseDirectory;
+var indexPath = Path.Combine(webRoot, "index.html");
+// Serve only the client assets we ship next to index.html (css/, js/).
+foreach (var folder in new[] { "css", "js" })
+{
+    var path = Path.Combine(webRoot, folder);
+    if (Directory.Exists(path))
+    {
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(path),
+            RequestPath = "/" + folder
+        });
+    }
+}
 app.MapGet("/", () => Results.File(indexPath, "text/html; charset=utf-8"));
 app.MapGet("/index.html", () => Results.File(indexPath, "text/html; charset=utf-8"));
 
