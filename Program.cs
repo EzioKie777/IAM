@@ -134,6 +134,22 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+// Serve client assets early so /css/* and /js/* always resolve.
+var webRoot = AppContext.BaseDirectory;
+var indexPath = Path.Combine(webRoot, "index.html");
+foreach (var folder in new[] { "css", "js" })
+{
+    var assetPath = Path.Combine(webRoot, folder);
+    if (Directory.Exists(assetPath))
+    {
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(assetPath),
+            RequestPath = "/" + folder
+        });
+    }
+}
+
 app.UseRateLimiter();
 app.UseWebSockets();
 app.UseAuthentication();
@@ -149,21 +165,6 @@ app.Use(async (context, next) =>
     await next();
 });
 
-var webRoot = AppContext.BaseDirectory;
-var indexPath = Path.Combine(webRoot, "index.html");
-// Serve only the client assets we ship next to index.html (css/, js/).
-foreach (var folder in new[] { "css", "js" })
-{
-    var path = Path.Combine(webRoot, folder);
-    if (Directory.Exists(path))
-    {
-        app.UseStaticFiles(new StaticFileOptions
-        {
-            FileProvider = new PhysicalFileProvider(path),
-            RequestPath = "/" + folder
-        });
-    }
-}
 app.MapGet("/", () => Results.File(indexPath, "text/html; charset=utf-8"));
 app.MapGet("/index.html", () => Results.File(indexPath, "text/html; charset=utf-8"));
 
