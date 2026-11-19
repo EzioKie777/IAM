@@ -2,6 +2,8 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Text.Json;
+using System.Text;
+using System.Text.Encodings.Web;
 using System.Net.WebSockets;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Antiforgery;
@@ -16,6 +18,8 @@ using Microsoft.AspNetCore.RateLimiting;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
+using Microsoft.AspNetCore.WebUtilities;
+using Mimipop.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddUserSecrets<Program>(optional: true);
@@ -37,6 +41,7 @@ var mongoClient = new MongoClient(mongoUri);
 var mongoDatabase = mongoClient.GetDatabase(builder.Configuration["MONGODB_DATABASE"] ?? "mimipop");
 var users = mongoDatabase.GetCollection<UserAccount>("users");
 var friendships = mongoDatabase.GetCollection<Friendship>("friendships");
+var authActionTokens = mongoDatabase.GetCollection<AuthActionToken>("authActionTokens");
 var dummyPasswordHash = PasswordHasher.Hash(Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
 await mongoDatabase.RunCommandAsync<BsonDocument>(new BsonDocument("ping", 1));
 await users.Indexes.CreateOneAsync(new CreateIndexModel<UserAccount>(
@@ -46,6 +51,12 @@ await friendships.Indexes.CreateOneAsync(new CreateIndexModel<Friendship>(
     Builders<Friendship>.IndexKeys.Ascending(friendship => friendship.UserLowId)
         .Ascending(friendship => friendship.UserHighId),
     new CreateIndexOptions { Unique = true, Name = "unique_friendship_pair" }));
+await authActionTokens.Indexes.CreateOneAsync(new CreateIndexModel<AuthActionToken>(
+    Builders<AuthActionToken>.IndexKeys.Ascending(token => token.ExpiresAt),
+    new CreateIndexOptions { ExpireAfter = TimeSpan.Zero, Name = "expire_auth_action_tokens" }));
+await authActionTokens.Indexes.CreateOneAsync(new CreateIndexModel<AuthActionToken>(
+    Builders<AuthActionToken>.IndexKeys.Ascending(token => token.TokenHash),
+    new CreateIndexOptions { Unique = true, Name = "unique_auth_action_token_hash" }));
 
 // Login cookies and CSRF tokens are protected with these keys. They must survive restarts and
 // redeploys, otherwise every user is logged out. Hosts with temporary disks keep them in MongoDB.
@@ -124,6 +135,16 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
+    options.AddPolicy("account-recovery", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(15),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
     options.AddPolicy("social", context =>
         RateLimitPartition.GetFixedWindowLimiter(
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -147,6 +168,13 @@ builder.Services.AddRateLimiter(options =>
 });
 builder.Services.AddSingleton(users);
 builder.Services.AddSingleton(friendships);
+builder.Services.AddSingleton(authActionTokens);
+builder.Services.AddSingleton<EmailSettings>();
+builder.Services.AddHttpClient<IEmailSender, ResendEmailSender>(client =>
+{
+    client.BaseAddress = new Uri("https://api.resend.com/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 builder.Services.AddSingleton<CueMatchmakingService>();
 builder.Services.AddHostedService(serviceProvider =>
     serviceProvider.GetRequiredService<CueMatchmakingService>());
@@ -199,6 +227,18 @@ app.MapGet("/api/auth/csrf", (HttpContext context, IAntiforgery antiforgery) =>
 app.MapGet("/api/auth/me", GetCurrentUser).RequireAuthorization();
 app.MapPost("/api/auth/register", Register).RequireRateLimiting("auth");
 app.MapPost("/api/auth/login", Login).RequireRateLimiting("auth");
+app.MapPost("/api/auth/email/verify", VerifyEmail)
+    .WithSummary("Verify an email address using a one-time link.")
+    .RequireRateLimiting("account-recovery");
+app.MapPost("/api/auth/email/verification/resend", ResendEmailVerification)
+    .WithSummary("Resend an account verification email without revealing account existence.")
+    .RequireRateLimiting("account-recovery");
+app.MapPost("/api/auth/password/forgot", RequestPasswordReset)
+    .WithSummary("Request a password reset email.")
+    .RequireRateLimiting("account-recovery");
+app.MapPost("/api/auth/password/reset", ResetPassword)
+    .WithSummary("Set a new password using a one-time reset link.")
+    .RequireRateLimiting("account-recovery");
 app.MapPost("/api/auth/logout", Logout).RequireRateLimiting("auth").RequireAuthorization();
 app.MapGet("/api/profile", GetProfile).RequireAuthorization().RequireRateLimiting("social");
 app.MapPut("/api/profile", UpdateProfile).RequireAuthorization().RequireRateLimiting("auth");
@@ -420,11 +460,25 @@ async Task<IResult> GetCurrentUser(ClaimsPrincipal principal, CancellationToken 
     return user is null ? Results.Unauthorized() : Results.Ok(ToAccountResponse(user));
 }
 
-async Task<IResult> Register(RegisterRequest request, HttpContext context, IAntiforgery antiforgery)
+async Task<IResult> Register(
+    RegisterRequest request,
+    HttpContext context,
+    IAntiforgery antiforgery,
+    EmailSettings emailSettings,
+    IEmailSender emailSender,
+    ILogger<Program> logger,
+    CancellationToken cancellationToken)
 {
     if (!await HasValidAntiforgeryToken(context, antiforgery))
     {
         return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Refresh the page and try again.");
+    }
+
+    if (!emailSettings.IsConfigured)
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status503ServiceUnavailable,
+            title: "Email delivery is not configured. Please try again later.");
     }
 
     var name = request.Name?.Trim();
@@ -447,6 +501,7 @@ async Task<IResult> Register(RegisterRequest request, HttpContext context, IAnti
     var user = new UserAccount
     {
         Email = email,
+        EmailVerified = false,
         Name = name,
         PasswordHash = PasswordHasher.Hash(request.Password),
         CreatedAt = DateTime.UtcNow,
@@ -458,15 +513,38 @@ async Task<IResult> Register(RegisterRequest request, HttpContext context, IAnti
 
     try
     {
-        await users.InsertOneAsync(user, cancellationToken: context.RequestAborted);
+        await users.InsertOneAsync(user, options: null, cancellationToken: cancellationToken);
     }
     catch (MongoWriteException exception) when (exception.WriteError?.Category == ServerErrorCategory.DuplicateKey)
     {
         return Results.Problem(statusCode: StatusCodes.Status409Conflict, title: "An account with that email already exists.");
     }
 
-    await SignIn(context, user, request.RememberMe);
-    return Results.Ok(ToAccountResponse(user));
+    var token = await IssueAuthActionTokenAsync(
+        user,
+        AuthActionTokenPurpose.EmailVerification,
+        TimeSpan.FromHours(24),
+        cancellationToken);
+    try
+    {
+        await SendAccountActionEmailAsync(
+            emailSender,
+            emailSettings,
+            user,
+            AuthActionTokenPurpose.EmailVerification,
+            token,
+            cancellationToken);
+    }
+    catch (EmailDeliveryException exception)
+    {
+        logger.LogError(exception, "Unable to send a verification email for account {AccountId}.", user.Id);
+        return Results.Problem(
+            statusCode: StatusCodes.Status503ServiceUnavailable,
+            title: "Your account was created, but we couldn’t send the verification email. Please try resending it later.");
+    }
+
+    return Results.Accepted(value: new AuthMessageResponse(
+        "Account created. Check your email for a verification link before signing in."));
 }
 
 async Task<IResult> Login(LoginRequest request, HttpContext context, IAntiforgery antiforgery)
@@ -491,8 +569,198 @@ async Task<IResult> Login(LoginRequest request, HttpContext context, IAntiforger
         return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Email or password is incorrect.");
     }
 
+    if (!user.EmailVerified)
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status403Forbidden,
+            title: "Verify your email address before signing in.");
+    }
+
     await SignIn(context, user, request.RememberMe);
     return Results.Ok(ToAccountResponse(user));
+}
+
+async Task<IResult> VerifyEmail(
+    VerifyEmailRequest request,
+    HttpContext context,
+    IAntiforgery antiforgery,
+    CancellationToken cancellationToken)
+{
+    if (!await HasValidAntiforgeryToken(context, antiforgery))
+    {
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Refresh the page and try again.");
+    }
+
+    var token = await ConsumeAuthActionTokenAsync(
+        request.Token,
+        AuthActionTokenPurpose.EmailVerification,
+        cancellationToken);
+    if (token is null)
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "This verification link is invalid or has expired. Request a new one and try again.");
+    }
+
+    var update = Builders<UserAccount>.Update.Set(user => user.EmailVerified, true);
+    var result = await users.UpdateOneAsync(user => user.Id == token.UserId, update, cancellationToken: cancellationToken);
+    if (result.MatchedCount == 0)
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "This verification link is invalid or has expired. Request a new one and try again.");
+    }
+
+    return Results.Ok(new AuthMessageResponse("Email verified. You can now sign in."));
+}
+
+async Task<IResult> ResendEmailVerification(
+    EmailAddressRequest request,
+    HttpContext context,
+    IAntiforgery antiforgery,
+    EmailSettings emailSettings,
+    IEmailSender emailSender,
+    ILogger<Program> logger,
+    CancellationToken cancellationToken)
+{
+    if (!await HasValidAntiforgeryToken(context, antiforgery))
+    {
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Refresh the page and try again.");
+    }
+
+    if (!emailSettings.IsConfigured)
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status503ServiceUnavailable,
+            title: "Email delivery is not configured. Please try again later.");
+    }
+
+    var email = NormalizeEmail(request.Email);
+    if (IsValidEmail(email))
+    {
+        var user = await users.Find(account => account.Email == email)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (user is not null && !user.EmailVerified)
+        {
+            var token = await IssueAuthActionTokenAsync(
+                user,
+                AuthActionTokenPurpose.EmailVerification,
+                TimeSpan.FromHours(24),
+                cancellationToken);
+            try
+            {
+                await SendAccountActionEmailAsync(
+                    emailSender,
+                    emailSettings,
+                    user,
+                    AuthActionTokenPurpose.EmailVerification,
+                    token,
+                    cancellationToken);
+            }
+            catch (EmailDeliveryException exception)
+            {
+                logger.LogError(exception, "Unable to resend a verification email for account {AccountId}.", user.Id);
+            }
+        }
+    }
+
+    return Results.Accepted(value: new AuthMessageResponse(
+        "If an account with that email exists and needs verification, we’ll send a link."));
+}
+
+async Task<IResult> RequestPasswordReset(
+    EmailAddressRequest request,
+    HttpContext context,
+    IAntiforgery antiforgery,
+    EmailSettings emailSettings,
+    IEmailSender emailSender,
+    ILogger<Program> logger,
+    CancellationToken cancellationToken)
+{
+    if (!await HasValidAntiforgeryToken(context, antiforgery))
+    {
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Refresh the page and try again.");
+    }
+
+    if (!emailSettings.IsConfigured)
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status503ServiceUnavailable,
+            title: "Email delivery is not configured. Please try again later.");
+    }
+
+    var email = NormalizeEmail(request.Email);
+    if (IsValidEmail(email))
+    {
+        var user = await users.Find(account => account.Email == email)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (user is not null)
+        {
+            var token = await IssueAuthActionTokenAsync(
+                user,
+                AuthActionTokenPurpose.PasswordReset,
+                TimeSpan.FromHours(1),
+                cancellationToken);
+            try
+            {
+                await SendAccountActionEmailAsync(
+                    emailSender,
+                    emailSettings,
+                    user,
+                    AuthActionTokenPurpose.PasswordReset,
+                    token,
+                    cancellationToken);
+            }
+            catch (EmailDeliveryException exception)
+            {
+                logger.LogError(exception, "Unable to send a password reset email for account {AccountId}.", user.Id);
+            }
+        }
+    }
+
+    return Results.Accepted(value: new AuthMessageResponse(
+        "If an account exists for that email, we’ll send a password reset link."));
+}
+
+async Task<IResult> ResetPassword(
+    ResetPasswordRequest request,
+    HttpContext context,
+    IAntiforgery antiforgery,
+    CancellationToken cancellationToken)
+{
+    if (!await HasValidAntiforgeryToken(context, antiforgery))
+    {
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Refresh the page and try again.");
+    }
+
+    if (string.IsNullOrEmpty(request.Password) || request.Password.Length < 12 || request.Password.Length > 128)
+    {
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Use a password between 12 and 128 characters.");
+    }
+
+    var token = await ConsumeAuthActionTokenAsync(
+        request.Token,
+        AuthActionTokenPurpose.PasswordReset,
+        cancellationToken);
+    if (token is null)
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "This password reset link is invalid or has expired. Request a new one and try again.");
+    }
+
+    var update = Builders<UserAccount>.Update
+        .Set(user => user.PasswordHash, PasswordHasher.Hash(request.Password))
+        .Set(user => user.EmailVerified, true);
+    var result = await users.UpdateOneAsync(user => user.Id == token.UserId, update, cancellationToken: cancellationToken);
+    if (result.MatchedCount == 0)
+    {
+        return Results.Problem(
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "This password reset link is invalid or has expired. Request a new one and try again.");
+    }
+
+    return Results.Ok(new AuthMessageResponse("Password updated. You can now sign in."));
 }
 
 async Task<IResult> Logout(
@@ -805,6 +1073,83 @@ async Task<IResult> GetFriends(ClaimsPrincipal principal, CancellationToken canc
     return Results.Ok(items);
 }
 
+async Task<string> IssueAuthActionTokenAsync(
+    UserAccount user,
+    AuthActionTokenPurpose purpose,
+    TimeSpan lifetime,
+    CancellationToken cancellationToken)
+{
+    var now = DateTime.UtcNow;
+    var rawToken = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+    var token = new AuthActionToken
+    {
+        Id = AuthActionTokenDocumentId(user.Id, purpose),
+        UserId = user.Id,
+        Purpose = purpose,
+        TokenHash = HashAuthActionToken(rawToken),
+        CreatedAt = now,
+        ExpiresAt = now.Add(lifetime)
+    };
+    await authActionTokens.ReplaceOneAsync(
+        existing => existing.Id == token.Id,
+        token,
+        new ReplaceOptions { IsUpsert = true },
+        cancellationToken);
+    return rawToken;
+}
+
+async Task<AuthActionToken?> ConsumeAuthActionTokenAsync(
+    string? rawToken,
+    AuthActionTokenPurpose purpose,
+    CancellationToken cancellationToken)
+{
+    if (string.IsNullOrEmpty(rawToken) || rawToken.Length > 128)
+    {
+        return null;
+    }
+
+    var filter = Builders<AuthActionToken>.Filter.Eq(token => token.TokenHash, HashAuthActionToken(rawToken)) &
+        Builders<AuthActionToken>.Filter.Eq(token => token.Purpose, purpose) &
+        Builders<AuthActionToken>.Filter.Gt(token => token.ExpiresAt, DateTime.UtcNow);
+    return await authActionTokens.FindOneAndDeleteAsync(filter, cancellationToken: cancellationToken);
+}
+
+async Task SendAccountActionEmailAsync(
+    IEmailSender emailSender,
+    EmailSettings emailSettings,
+    UserAccount user,
+    AuthActionTokenPurpose purpose,
+    string token,
+    CancellationToken cancellationToken)
+{
+    var (page, subject, action, description, expiry) = purpose switch
+    {
+        AuthActionTokenPurpose.EmailVerification =>
+            ("verify-email", "Verify your MIMIPOP email", "Verify email address",
+                "Confirm this email address to activate your MIMIPOP account.", "24 hours"),
+        AuthActionTokenPurpose.PasswordReset =>
+            ("reset-password", "Reset your MIMIPOP password", "Reset password",
+                "Use this link to choose a new password for your MIMIPOP account.", "1 hour"),
+        _ => throw new ArgumentOutOfRangeException(nameof(purpose))
+    };
+    var baseUri = emailSettings.PublicBaseUri
+        ?? throw new InvalidOperationException("PUBLIC_BASE_URL is not configured correctly.");
+    var link = new Uri(
+        baseUri,
+        $"index.html?page={page}#token={Uri.EscapeDataString(token)}").AbsoluteUri;
+    var safeName = HtmlEncoder.Default.Encode(user.Name);
+    var safeAction = HtmlEncoder.Default.Encode(action);
+    var safeLink = HtmlEncoder.Default.Encode(link);
+    var htmlBody = $"""
+        <p>Hi {safeName},</p>
+        <p>{description}</p>
+        <p><a href="{safeLink}">{safeAction}</a></p>
+        <p>This link expires in {expiry}. If you didn’t request this, you can ignore this email.</p>
+        """;
+    var textBody = $"Hi {user.Name},\n\n{description}\n\n{action}: {link}\n\nThis link expires in {expiry}. If you didn’t request this, you can ignore this email.";
+    await emailSender.SendAsync(user.Email, subject, htmlBody, textBody, cancellationToken);
+}
+
 async Task SignIn(HttpContext context, UserAccount user, bool rememberMe)
 {
     var identity = new ClaimsIdentity(
@@ -840,6 +1185,12 @@ static async Task<bool> HasValidAntiforgeryToken(HttpContext context, IAntiforge
 }
 
 static string NormalizeEmail(string? email) => email?.Trim().ToLowerInvariant() ?? string.Empty;
+
+static string HashAuthActionToken(string token) =>
+    Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+static string AuthActionTokenDocumentId(ObjectId userId, AuthActionTokenPurpose purpose) =>
+    $"{userId}:{purpose}";
 
 static bool TryGetUserId(ClaimsPrincipal principal, out ObjectId userId) =>
     ObjectId.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
@@ -908,6 +1259,14 @@ public static class ProfileOptions
 
 public sealed record RegisterRequest(string? Name, string? Email, string? Password, bool RememberMe);
 public sealed record LoginRequest(string? Email, string? Password, bool RememberMe);
+/// <summary>Request to send an account email message.</summary>
+public sealed record EmailAddressRequest(string? Email);
+/// <summary>Request to verify an email address with its one-time token.</summary>
+public sealed record VerifyEmailRequest(string? Token);
+/// <summary>Request to set a new password with a one-time reset token.</summary>
+public sealed record ResetPasswordRequest(string? Token, string? Password);
+/// <summary>Message returned by account verification and recovery endpoints.</summary>
+public sealed record AuthMessageResponse(string Title);
 public sealed record ProfileUpdateRequest(string? Name, string? Avatar, string? Bio, string? FavoriteGame, string? Country);
 public sealed record FriendRequestCreate(string? Email);
 public sealed record CueInviteRequest(string? FriendId);
@@ -1727,6 +2086,10 @@ public sealed class UserAccount
     [BsonElement("email")]
     public string Email { get; set; } = string.Empty;
 
+    [BsonElement("emailVerified")]
+    [BsonDefaultValue(true)]
+    public bool EmailVerified { get; set; } = true;
+
     [BsonElement("name")]
     public string Name { get; set; } = string.Empty;
 
@@ -1747,6 +2110,34 @@ public sealed class UserAccount
 
     [BsonElement("country")]
     public string Country { get; set; } = string.Empty;
+}
+
+public enum AuthActionTokenPurpose
+{
+    EmailVerification,
+    PasswordReset
+}
+
+public sealed class AuthActionToken
+{
+    [BsonId]
+    public string Id { get; set; } = string.Empty;
+
+    [BsonElement("userId")]
+    public ObjectId UserId { get; set; }
+
+    [BsonElement("purpose")]
+    [BsonRepresentation(BsonType.String)]
+    public AuthActionTokenPurpose Purpose { get; set; }
+
+    [BsonElement("tokenHash")]
+    public string TokenHash { get; set; } = string.Empty;
+
+    [BsonElement("createdAt")]
+    public DateTime CreatedAt { get; set; }
+
+    [BsonElement("expiresAt")]
+    public DateTime ExpiresAt { get; set; }
 }
 
 public static class PasswordHasher

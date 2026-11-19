@@ -161,8 +161,34 @@
                         <button class="login-link" type="button" id="login-forgot">Forgot password?</button>
                     </div>
                     <button class="button button-primary login-submit" id="login-submit" type="submit">Log in <span aria-hidden="true">→</span></button>
-                    <p class="login-status" id="login-status" role="status" aria-live="polite"></p>
                 </form>
+                <form id="forgot-password-form" hidden>
+                    <label class="login-field" for="forgot-email">
+                        Email address
+                        <input id="forgot-email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required>
+                    </label>
+                    <button class="button button-primary login-submit" type="submit">Send reset link</button>
+                    <a class="login-link" href="index.html?page=login">Back to sign in</a>
+                </form>
+                <form id="reset-password-form" hidden>
+                    <label class="login-field" for="reset-password">
+                        New password
+                        <input id="reset-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
+                    </label>
+                    <label class="login-field" for="reset-password-confirm">
+                        Confirm new password
+                        <input id="reset-password-confirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
+                    </label>
+                    <button class="button button-primary login-submit" id="reset-password-submit" type="submit">Save new password</button>
+                    <a class="login-link" href="index.html?page=login">Back to sign in</a>
+                </form>
+                <form id="verify-email-form" hidden>
+                    <p>Click below to verify this email address and activate your account.</p>
+                    <button class="button button-primary login-submit" id="verify-email-submit" type="submit">Verify email address</button>
+                    <a class="login-link" href="index.html?page=login">Back to sign in</a>
+                </form>
+                <button class="login-link" id="login-resend-verification" type="button" hidden>Resend verification email</button>
+                <p class="login-status" id="login-status" role="status" aria-live="polite"></p>
                 <p class="login-divider">YOUR NEXT GOOD TIME STARTS HERE</p>
                 <p class="login-signup" id="login-switch">New to MIMIPOP? <a href="index.html?page=register">Join the club</a></p>
             </div>

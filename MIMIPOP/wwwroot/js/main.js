@@ -46,7 +46,7 @@ if (selectedGamePage) {
     selectedGamePage.modal.setAttribute("role", "main");
     selectedGamePage.modal.removeAttribute("aria-modal");
     selectedGamePage.open();
-} else if (requestedPage === "login" || requestedPage === "register") {
+} else if (["login", "register", "verify-email", "forgot-password", "reset-password"].includes(requestedPage)) {
     configureLoginPage();
 } else if (requestedPage === "profile") {
     loadProfilePage();

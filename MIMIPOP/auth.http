@@ -1,0 +1,75 @@
+@baseUrl = http://127.0.0.1:5187
+@csrfToken = replace-with-token-from-GET-api-auth-csrf
+@emailActionToken = replace-with-token-from-email-link-fragment
+
+### Get an antiforgery token before making account changes
+GET {{baseUrl}}/api/auth/csrf
+
+### Register and send a verification email
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrfToken}}
+
+{
+  "name": "Mimi Player",
+  "email": "mimi@example.com",
+  "password": "replace-with-a-unique-password",
+  "rememberMe": false
+}
+
+### Verify an email address
+POST {{baseUrl}}/api/auth/email/verify
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrfToken}}
+
+{
+  "token": "{{emailActionToken}}"
+}
+
+### Reject an invalid, expired, or already-used email token
+POST {{baseUrl}}/api/auth/email/verify
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrfToken}}
+
+{
+  "token": "invalid-or-expired-token"
+}
+
+### Resend a verification email (response does not reveal whether the account exists)
+POST {{baseUrl}}/api/auth/email/verification/resend
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrfToken}}
+
+{
+  "email": "mimi@example.com"
+}
+
+### Request a password reset email
+POST {{baseUrl}}/api/auth/password/forgot
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrfToken}}
+
+{
+  "email": "mimi@example.com"
+}
+
+### Set a new password with a password-reset token
+POST {{baseUrl}}/api/auth/password/reset
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrfToken}}
+
+{
+  "token": "{{emailActionToken}}",
+  "password": "replace-with-a-new-unique-password"
+}
+
+### Login after verification or password reset
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrfToken}}
+
+{
+  "email": "mimi@example.com",
+  "password": "replace-with-the-current-password",
+  "rememberMe": false
+}
