@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#110d20">
+    <meta name="description" content="MIMIPOP — play, connect, laugh, repeat. Your home for feel-good games and good company.">
+    <title>MIMIPOP — Play. Connect. Repeat.</title>
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/home.css">
+    <link rel="stylesheet" href="/css/cue.css">
+    <link rel="stylesheet" href="/css/tongits.css">
+    <link rel="stylesheet" href="/css/fourplay.css">
+    <link rel="stylesheet" href="/css/bubbly.css">
+    <link rel="stylesheet" href="/css/swapper.css">
+    <link rel="stylesheet" href="/css/games.css">
+    <link rel="stylesheet" href="/css/auth.css">
+    <link rel="stylesheet" href="/css/profile.css">
+    <link rel="stylesheet" href="/css/responsive.css">
+</head>
+<body>
+    <div class="announcement"><span>✦</span> A little more play, a lot more happy <span>✦</span></div>
+    <header class="shell topbar">
+        <a class="brand" href="#" aria-label="MIMIPOP home">
+            <span class="brand-mark">M</span><span>MIMI<span>POP</span></span>
+        </a>
+        <nav class="nav-links" aria-label="Main navigation">
+            <a class="active" href="#games">Explore</a>
+            <a href="#rewards">Rewards</a>
+            <a href="#community">Our club</a>
+        </nav>
+        <div class="account-actions" id="account-actions">
+            <a class="button button-quiet" href="?page=login">Log in</a>
+            <a class="button button-primary" href="?page=register">Join the club <span aria-hidden="true">↗</span></a>
+        </div>
+    </header>
+
+    <main class="shell">
+        <section class="hero" aria-labelledby="hero-title">
+            <div class="hero-copy">
+                <div class="eyebrow">Your happy place</div>
+                <h1 id="hero-title">GOOD VIBES.<br>BIG ENERGY.</h1>
+                <p>Games, giggles, and a little bit of sparkle. Pull up a seat — your new favorite way to play is waiting.</p>
+                <div class="hero-cta">
+                    <a class="button button-light" href="#games">Find your game <span aria-hidden="true">→</span></a>
+                    <span class="member-count"><strong>12k+</strong> happy players</span>
+                </div>
+            </div>
+            <div class="hero-art" aria-hidden="true">
+                <div class="sunburst"></div>
+                <div class="coin">M</div>
+                <span class="float-star star-one">✦</span>
+                <span class="float-star star-two">✧</span>
+                <div class="mascot"><span class="mascot-face">••</span></div>
+                <div class="ticket">GOOD LUCK, CUTIE!</div>
+            </div>
+        </section>
+
+        <section class="live-strip" aria-label="Community activity">
+            <div class="live-label"><span class="live-dot"></span> GOOD TIMES LIVE</div>
+            <div class="live-items">
+                <span><strong>mimi_rose</strong> just hit a new high score <b>★ 2,480</b></span>
+                <span><strong>popstar88</strong> is playing Cue The Fun</span>
+                <span><strong>jellybean</strong> won today's mini challenge <b>✦</b></span>
+            </div>
+        </section>
+
+        <section id="games" aria-labelledby="games-title">
+            <div class="section-heading">
+                <div><p class="section-kicker">Pick your vibe</p><h2 id="games-title">The good stuff</h2></div>
+                <a class="see-all" href="#games">See all games <span aria-hidden="true">→</span></a>
+            </div>
+            <div class="game-grid">
+                <a class="game-card" href="?game=cue-the-fun" data-game="Cue The Fun" data-billiards-trigger>
+                    <div class="game-art art-billiards"><span class="game-tag">Play now</span><span class="game-icon" aria-hidden="true">🎱</span></div>
+                    <div class="game-info"><h3>Cue The Fun</h3><p>Line it up. Sink it. Smile.</p></div>
+                </a>
+                <a class="game-card" href="?game=tongits-trio" data-game="Tongits Trio" data-tongits-trigger>
+                    <div class="game-art art-cards"><span class="game-tag">Play now</span><span class="game-icon" aria-hidden="true">🂡</span></div>
+                    <div class="game-info"><h3>Tongits Trio</h3><p>Build melds. Outsmart the table.</p></div>
+                </a>
+                <a class="game-card" href="?game=four-play" data-game="Four Play" data-fourplay-trigger>
+                    <div class="game-art art-fourplay"><span class="game-tag">Play now</span><span class="game-icon" aria-hidden="true">🟡</span></div>
+                    <div class="game-info"><h3>Four Play</h3><p>Connect four. Claim the win.</p></div>
+                </a>
+                <a class="game-card" href="?game=pop-the-bubbly" data-game="Pop The Bubbly" data-bubbly-trigger>
+                    <div class="game-art art-slots"><span class="game-tag">Play now</span><span class="game-icon" aria-hidden="true">🍒</span></div>
+                    <div class="game-info"><h3>Pop The Bubbly</h3><p>Three cheers for a good spin</p></div>
+                </a>
+                <a class="game-card" href="?game=swapper" data-game="Swapper" data-swapper-trigger>
+                    <div class="game-art art-swapper"><span class="game-tag">Play now</span><span class="game-icon" aria-hidden="true">💎</span></div>
+                    <div class="game-info"><h3>Swapper</h3><p>Match tiles. Make it pop.</p></div>
+                </a>
+                <a class="game-card" href="#games" data-game="Bingo Besties">
+                    <div class="game-art art-bingo"><span class="game-tag">Community pick</span><span class="game-icon" aria-hidden="true">🎱</span></div>
+                    <div class="game-info"><h3>Bingo Besties</h3><p>It's more fun with friends</p></div>
+                </a>
+            </div>
+        </section>
+
+        <section class="bottom-row" id="rewards" aria-label="Rewards and community">
+            <div class="rewards-card">
+                <div class="reward-copy">
+                    <p>A little treat for you</p>
+                    <h2>Your daily dose of delight</h2>
+                    <small>Pop in every day for a fresh surprise.</small>
+                    <button class="button button-primary" style="margin-top: 13px; min-height: 35px; padding: 0 12px; font-size: 10px;" data-message="Your daily treat is almost ready. Come back soon!">Get your daily treat <span aria-hidden="true">→</span></button>
+                </div>
+                <div class="reward-icon" aria-hidden="true">🎁</div>
+            </div>
+            <div class="community-card" id="community">
+                <div class="community-copy">
+                    <p>Better together</p>
+                    <h2>Meet your people.</h2>
+                    <small>Join the MIMIPOP club.</small>
+                </div>
+                <a class="button button-light" href="?page=register">Say hello <span aria-hidden="true">↗</span></a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="shell">
+        <span><strong>MIMIPOP</strong> · Play. Connect. Laugh. Repeat.</span>
+        <div class="footer-links"><a href="#community">About</a><a href="#community">Good game guide</a><a href="#community">Be kind online</a></div>
+        <span>Just here for fun ♡</span>
+    </footer>
+    <main class="login-page" id="login-page" aria-labelledby="login-title" hidden>
+        <section class="login-story" aria-label="Welcome to MIMIPOP">
+            <a class="login-story-brand" href="index.html" aria-label="MIMIPOP home">
+                <span class="brand-mark">M</span><span>MIMI<span>POP</span></span>
+            </a>
+            <div class="login-story-copy">
+                <p class="login-story-kicker">Your happy place</p>
+                <h1>GOOD VIBES.<br>WELCOME BACK.</h1>
+                <p>Your favorite games, familiar faces, and a little sparkle are right where you left them.</p>
+            </div>
+            <p class="login-story-note">Play. Connect. Laugh. Repeat. ♡</p>
+        </section>
+        <section class="login-form-side" aria-label="Sign in" id="login-form-section">
+            <div class="login-form-card">
+                <a class="login-back" href="index.html#games"><span aria-hidden="true">←</span> Back to MIMIPOP</a>
+                <p class="section-kicker">MEMBER SIGN-IN</p>
+                <h2 id="login-title">Hey, cutie!</h2>
+                <p class="login-lede">Sign in to pick up where the fun left off.</p>
+                <form id="login-form">
+                    <label class="login-field" id="login-name-field" for="login-name" hidden>
+                        Display name
+                        <input id="login-name" name="name" type="text" autocomplete="nickname" maxlength="60" placeholder="What should we call you?">
+                    </label>
+                    <label class="login-field" for="login-email">
+                        Email address
+                        <input id="login-email" name="email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required>
+                    </label>
+                    <label class="login-field" for="login-password">Password</label>
+                    <div class="login-password-wrap">
+                        <input id="login-password" name="password" type="password" autocomplete="current-password" maxlength="128" placeholder="Enter your password" required>
+                        <button class="login-password-toggle" type="button" id="login-password-toggle" aria-label="Show password" aria-pressed="false">Show</button>
+                    </div>
+                    <div class="login-options">
+                        <label class="login-remember" id="login-remember"><input type="checkbox" name="remember"> Keep me signed in</label>
+                        <button class="login-link" type="button" id="login-forgot">Forgot password?</button>
+                    </div>
+                    <button class="button button-primary login-submit" id="login-submit" type="submit">Log in <span aria-hidden="true">→</span></button>
+                    <p class="login-status" id="login-status" role="status" aria-live="polite"></p>
+                </form>
+                <p class="login-divider">YOUR NEXT GOOD TIME STARTS HERE</p>
+                <p class="login-signup" id="login-switch">New to MIMIPOP? <a href="index.html?page=register">Join the club</a></p>
+            </div>
+        </section>
+    </main>
+    <main class="profile-page" id="profile-page" aria-labelledby="profile-page-title" hidden>
+        <div class="profile-page-header">
+            <div>
+                <p class="section-kicker">YOUR MIMIPOP SPACE</p>
+                <h1 id="profile-page-title">Your profile</h1>
+                <p>Make it yours, then find your people.</p>
+            </div>
+            <a class="button button-quiet" href="index.html#games">← Back to games</a>
+        </div>
+        <div class="profile-layout">
+            <div class="profile-column">
+                <section class="profile-card" aria-labelledby="profile-edit-title">
+                    <div class="profile-card-heading">
+                        <div class="profile-avatar-preview" id="profile-avatar-preview" aria-hidden="true">✨</div>
+                        <div><h2 id="profile-edit-title">Your details</h2><p>Your profile is ready to show the MIMIPOP community.</p></div>
+                    </div>
+                    <form id="profile-form">
+                        <div class="profile-form-grid">
+                            <label class="profile-field" for="profile-name">Display name
+                                <input id="profile-name" name="name" maxlength="60" required>
+                            </label>
+                            <label class="profile-field" for="profile-avatar">Avatar
+                                <select id="profile-avatar" name="avatar">
+                                    <option value="✨">✨ Sparkle</option><option value="🌟">🌟 Star</option>
+                                    <option value="🎱">🎱 Eight ball</option><option value="🂡">🂡 Ace</option>
+                                    <option value="🟡">🟡 Gold disc</option><option value="🍾">🍾 Bubbly</option>
+                                    <option value="💎">💎 Gem</option><option value="🍒">🍒 Cherry</option>
+                                    <option value="🦋">🦋 Butterfly</option><option value="🐱">🐱 Cat</option>
+                                </select>
+                            </label>
+                            <label class="profile-field profile-field-wide" for="profile-bio">A little about you
+                                <textarea id="profile-bio" name="bio" maxlength="180" placeholder="What makes you smile?"></textarea>
+                            </label>
+                            <label class="profile-field" for="profile-favorite-game">Favorite game
+                                <select id="profile-favorite-game" name="favoriteGame">
+                                    <option value="">Choose one</option><option>Cue The Fun</option>
+                                    <option>Tongits Trio</option><option>Four Play</option>
+                                    <option>Pop The Bubbly</option><option>Swapper</option>
+                                </select>
+                            </label>
+                            <label class="profile-field" for="profile-country">Country
+                                <input id="profile-country" name="country" maxlength="56" autocomplete="country-name" placeholder="Your country">
+                            </label>
+                        </div>
+                        <p class="profile-email-note">Account email: <strong id="profile-email"></strong> · Only you can see this.</p>
+                        <div class="profile-actions">
+                            <span class="profile-meta" id="profile-member-since"></span>
+                            <button class="button button-primary" type="submit" id="profile-save">Save profile</button>
+                        </div>
+                        <p class="profile-message" id="profile-message" role="status" aria-live="polite"></p>
+                    </form>
+                </section>
+                <section class="profile-card" aria-labelledby="achievements-title">
+                    <div class="profile-card-heading">
+                        <div><p class="section-kicker">YOUR HIGHLIGHTS</p><h2 id="achievements-title">Achievements</h2></div>
+                    </div>
+                    <div class="profile-achievements">
+                        <div><span class="profile-achievements-icon" aria-hidden="true">🏆</span><strong>Your trophies will live here</strong><p>This space is ready for game achievements. Play on — we’ll add your milestones here soon.</p></div>
+                    </div>
+                </section>
+            </div>
+            <section class="profile-card" aria-labelledby="friends-title">
+                <div class="profile-card-heading">
+                    <div><p class="section-kicker">BETTER TOGETHER</p><h2 id="friends-title">Friends</h2><p>Search by someone’s exact account email. Their email stays private.</p></div>
+                </div>
+                <form class="friend-search-form" id="friend-search-form">
+                    <label for="friend-search-email">Member email
+                        <input id="friend-search-email" type="email" maxlength="254" autocomplete="off" placeholder="friend@example.com" required>
+                    </label>
+                    <button class="button button-light" type="submit">Find friend</button>
+                </form>
+                <div class="friend-search-result" id="friend-search-result" aria-live="polite"></div>
+                <p class="friend-message" id="friend-message" role="status" aria-live="polite"></p>
+                <h3 class="friend-list-heading">Requests for you</h3>
+                <div class="friend-list" id="incoming-friends"></div>
+                <h3 class="friend-list-heading">Your friends</h3>
+                <div class="friend-list" id="accepted-friends"></div>
+                <h3 class="friend-list-heading">Requests sent</h3>
+                <div class="friend-list" id="outgoing-friends"></div>
+            </section>
+        </div>
+    </main>
+    <div class="billiards-modal" id="billiards-modal" role="dialog" aria-modal="true" aria-labelledby="billiards-title" aria-describedby="billiards-instructions" hidden>
+        <div class="billiards-panel">
+            <div class="billiards-heading">
+                <div>
+                    <p class="section-kicker">MIMIPOP ORIGINAL</p>
+                    <h2 id="billiards-title">Cue The Fun 🎱</h2>
+                    <p>Take your shot and clear the table.</p>
+                </div>
+                <button class="billiards-close" type="button" aria-label="Back to all games" data-close-game>← Games</button>
+            </div>
+            <section class="cue-mode-picker" id="cue-mode-picker" aria-labelledby="cue-mode-title">
+                <div>
+                    <p class="section-kicker">CHOOSE YOUR GAME</p>
+                    <h3 id="cue-mode-title">How do you want to play?</h3>
+                    <p>Choose a mode to continue.</p>
+                </div>
+                <div class="cue-mode-options">
+                    <button class="cue-mode-option" type="button" data-cue-mode="practice">
+                        <span class="cue-mode-icon" aria-hidden="true">🎯</span>
+                        <strong>Practice</strong>
+                        <span>Play solo and clear the rack at your own pace.</span>
+                    </button>
+                    <button class="cue-mode-option" type="button" data-cue-mode="classic">
+                        <span class="cue-mode-icon" aria-hidden="true">🎱</span>
+                        <strong>Classic · Find Match</strong>
+                        <span>Queue up and get paired with another player.</span>
+                    </button>
+                    <button class="cue-mode-option" type="button" data-cue-mode="custom">
+                        <span class="cue-mode-icon" aria-hidden="true">🤝</span>
+                        <strong>Custom</strong>
+                        <span>Challenge one of your friends to a private duel.</span>
+                    </button>
+                </div>
+            </section>
+            <section class="cue-practice-view" id="cue-practice-view" hidden>
+                <button class="button button-quiet cue-mode-back" type="button" data-cue-change-mode>← Change mode</button>
+                <p class="cue-match-status" id="cue-live-status" role="status" aria-live="polite" hidden></p>
+                <div class="billiards-canvas-wrap">
+                    <canvas id="billiards-canvas" width="900" height="480" tabindex="0" aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Space" aria-label="Billiards table. Aim with your pointer and click to shoot, or use the arrow keys and space bar."></canvas>
+                </div>
+                <div class="billiards-toolbar">
+                    <div class="billiards-status" aria-live="polite"><strong id="billiards-score">0 / 10 pocketed</strong><span> · </span><span id="billiards-message">Aim and click the table to shoot.</span></div>
+                    <div class="billiards-controls">
+                        <label class="power-control" for="shot-power">Power <input id="shot-power" type="range" min="15" max="100" value="65"><span id="power-value">65%</span></label>
+                        <button class="button button-primary" type="button" id="rack-balls">Rack again</button>
+                    </div>
+                </div>
+                <p class="billiards-help" id="billiards-instructions">Move your pointer to aim, then click or tap the table to shoot. Keyboard players can use the arrow keys to aim and space to shoot. Pocket all 10 balls to clear the rack.</p>
+            </section>
+            <section class="cue-matchmaking" id="cue-matchmaking" aria-labelledby="cue-matchmaking-title" hidden>
+                <button class="button button-quiet cue-mode-back" type="button" data-cue-change-mode>← Change mode</button>
+                <div>
+                    <p class="section-kicker">PLAY TOGETHER</p>
+                    <h3 id="cue-matchmaking-title">Find a matchup</h3>
+                    <p id="cue-match-description">Queue up and get paired with another player.</p>
+                </div>
+                <p class="cue-match-status" id="cue-match-status" role="status" aria-live="polite">Checking your sign-in…</p>
+                <div class="cue-match-actions" id="cue-classic-actions">
+                    <button class="button button-primary" type="button" id="cue-queue-button" disabled>Find a match</button>
+                    <button class="button button-quiet" type="button" id="cue-cancel-queue" hidden>Cancel search</button>
+                    <a class="button button-light" href="index.html?page=login" id="cue-sign-in" hidden>Sign in to match</a>
+                </div>
+                <div class="cue-match-card" id="cue-match-card" hidden>
+                    <div class="cue-match-player">
+                        <span class="cue-match-avatar" id="cue-match-avatar" aria-hidden="true"></span>
+                        <span><strong id="cue-match-name"></strong><small id="cue-match-mode"></small></span>
+                    </div>
+                    <button class="button button-primary" type="button" id="cue-enter-match">Enter live game</button>
+                    <button class="button button-quiet" type="button" id="cue-leave-match">Leave match</button>
+                </div>
+                <div class="cue-invite-form" id="cue-invite-form" hidden>
+                    <label class="sr-only" for="cue-friend-select">Choose a friend to challenge</label>
+                    <select id="cue-friend-select" aria-label="Choose a friend to challenge" disabled>
+                        <option value="">Loading friends…</option>
+                    </select>
+                    <button class="button button-light" type="button" id="cue-invite-button" disabled>Challenge friend</button>
+                </div>
+                <div class="cue-invitation-list" id="cue-incoming-invitations" aria-label="Incoming Cue The Fun challenges"></div>
+                <div class="cue-invitation-list" id="cue-outgoing-invitations" aria-label="Sent Cue The Fun challenges"></div>
+            </section>
+        </div>
+    </div>
+    <div class="billiards-modal tongits-modal" id="tongits-modal" role="dialog" aria-modal="true" aria-labelledby="tongits-title" aria-describedby="tongits-instructions" hidden>
+                <div class="billiards-panel tongits-panel">
+                    <div class="billiards-heading">
+                        <div>
+                            <p class="section-kicker">MIMIPOP CARD TABLE</p>
+                            <h2 id="tongits-title">Tongits Trio 🂡</h2>
+                            <p>Three players, one deck, and plenty of good moves.</p>
+                        </div>
+                        <button class="billiards-close" type="button" aria-label="Back to all games" data-close-tongits>← Games</button>
+                    </div>
+                    <div class="tongits-table" aria-label="Tongits card table">
+                        <div class="tongits-opponents">
+                            <div class="tongits-player">
+                                <div class="tongits-player-label">Mimi <span id="tongits-mimi-count">12 cards</span></div>
+                                <div class="tongits-back-row" id="tongits-mimi-backs" aria-hidden="true"></div>
+                            </div>
+                            <div class="tongits-player">
+                                <div class="tongits-player-label">Pop <span id="tongits-pop-count">12 cards</span></div>
+                                <div class="tongits-back-row" id="tongits-pop-backs" aria-hidden="true"></div>
+                            </div>
+                        </div>
+                        <div class="tongits-piles">
+                            <div class="tongits-pile">
+                                <button class="button button-light" type="button" id="tongits-draw-stock" aria-label="Draw from stock">Draw</button>
+                                <span id="tongits-stock-count">Stock · 15</span>
+                            </div>
+                            <div class="tongits-pile">
+                                <div class="tongits-discard-stack"><div class="tongits-table-card" id="tongits-discard-top">—</div></div>
+                                <span>Discard</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tongits-melds" id="tongits-melds"><strong>Your melds</strong><span>No melds yet</span></div>
+                    <div class="tongits-hand-heading"><strong>Your hand</strong><span id="tongits-turn">Draw to start your turn</span></div>
+                    <div class="tongits-hand" id="tongits-hand" aria-label="Your cards"></div>
+                    <div class="tongits-actions">
+                        <button class="button button-primary" type="button" id="tongits-draw-discard">Take discard</button>
+                        <button class="button button-light" type="button" id="tongits-meld">Lay selected meld</button>
+                        <button class="button button-light" type="button" id="tongits-discard">Discard selected</button>
+                        <button class="button button-quiet" type="button" id="tongits-new-game">New hand</button>
+                    </div>
+                    <p class="tongits-status" id="tongits-status" role="status" aria-live="polite">Draw a card to begin.</p>
+                    <p class="billiards-help" id="tongits-instructions">Draw one card, then discard one. Select 3 or more cards of the same rank or a same-suit sequence to lay a meld. Lowest unmatched card points wins when the stock runs out.</p>
+                </div>
+            </div>
+    </div>
+    <div class="billiards-modal" id="fourplay-modal" role="dialog" aria-modal="true" aria-labelledby="fourplay-title" aria-describedby="fourplay-instructions" hidden>
+        <div class="billiards-panel fourplay-panel">
+            <div class="billiards-heading">
+                <div>
+                    <p class="section-kicker">MIMIPOP ARCADE</p>
+                    <h2 id="fourplay-title">Four Play 🟡</h2>
+                    <p>Drop a disc. Connect four. Beat the house.</p>
+                </div>
+                <button class="billiards-close" type="button" aria-label="Back to all games" data-close-fourplay>← Games</button>
+            </div>
+            <div class="fourplay-board" id="fourplay-board" role="grid" aria-label="Connect four game board"></div>
+            <div class="fourplay-scoreboard">
+                <div class="fourplay-turn" id="fourplay-turn" aria-live="polite"><span class="fourplay-disc" aria-hidden="true"></span><strong>Your turn</strong> · Gold</div>
+                <button class="button button-primary" type="button" id="fourplay-new-game">New game</button>
+            </div>
+            <p class="billiards-help fourplay-help" id="fourplay-instructions">Choose any column to drop a gold disc. Connect four in a row, column, or diagonal before the pink computer player does.</p>
+        </div>
+    </div>
+    <div class="billiards-modal" id="bubbly-modal" role="dialog" aria-modal="true" aria-labelledby="bubbly-title" aria-describedby="bubbly-instructions" hidden>
+        <div class="billiards-panel bubbly-panel">
+            <div class="billiards-heading">
+                <div>
+                    <p class="section-kicker">JUST FOR FUN · NO BETTING</p>
+                    <h2 id="bubbly-title">Pop The Bubbly 🍾</h2>
+                    <p>Give the reels a spin and see what pops.</p>
+                </div>
+                <button class="billiards-close" type="button" aria-label="Back to all games" data-close-bubbly>← Games</button>
+            </div>
+            <div class="bubbly-machine" id="bubbly-machine">
+                <p class="bubbly-jackpot-label">A little sparkle goes a long way</p>
+                <div class="bubbly-reels" aria-label="Slot machine reels">
+                    <div class="bubbly-reel" id="bubbly-reel-0" aria-label="Reel one">🍒</div>
+                    <div class="bubbly-reel" id="bubbly-reel-1" aria-label="Reel two">🍋</div>
+                    <div class="bubbly-reel" id="bubbly-reel-2" aria-label="Reel three">🍾</div>
+                </div>
+                <div class="bubbly-stats">
+                    <span>Free-play points <strong id="bubbly-points">0</strong></span>
+                    <span>Spins <strong id="bubbly-spins">0</strong></span>
+                </div>
+                <p class="bubbly-result" id="bubbly-result" role="status" aria-live="polite">Ready when you are!</p>
+                <div class="bubbly-controls">
+                    <button class="button button-primary" type="button" id="bubbly-spin">Spin the reels <span aria-hidden="true">✦</span></button>
+                    <button class="button button-quiet" type="button" id="bubbly-reset">Start fresh</button>
+                </div>
+            </div>
+            <p class="bubbly-help" id="bubbly-instructions">This is a just-for-fun slot-style game. Spins are free, points have no cash value, and there are no bets or purchases. Three matching symbols score 100 points; two matching symbols score 20.</p>
+        </div>
+    </div>
+    <div class="billiards-modal" id="swapper-modal" role="dialog" aria-modal="true" aria-labelledby="swapper-title" aria-describedby="swapper-instructions" hidden>
+        <div class="billiards-panel swapper-panel">
+            <div class="billiards-heading">
+                <div>
+                    <p class="section-kicker">MIMIPOP MATCH CLUB</p>
+                    <h2 id="swapper-title">Swapper 💎</h2>
+                    <p>Match three. Make a little magic.</p>
+                </div>
+                <button class="billiards-close" type="button" aria-label="Back to all games" data-close-swapper>← Games</button>
+            </div>
+            <div class="swapper-toolbar" aria-label="Game stats">
+                <div class="swapper-stat">Score<strong id="swapper-score">0</strong></div>
+                <div class="swapper-stat">Moves left<strong id="swapper-moves">20</strong></div>
+                <div class="swapper-stat">Goal<strong id="swapper-goal">500</strong></div>
+            </div>
+            <div class="swapper-board" id="swapper-board" role="grid" aria-label="Eight by eight matching game board"></div>
+            <p class="swapper-status" id="swapper-status" role="status" aria-live="polite">Swap neighboring tiles to match three or more.</p>
+            <div class="swapper-footer">
+                <button class="button button-primary" type="button" id="swapper-new-game">New game</button>
+            </div>
+            <p class="billiards-help swapper-help" id="swapper-instructions">Select a tile, then select an adjacent tile to swap them. Only swaps that make a match will count. Clear tiles to score; reach 500 points in 20 moves.</p>
+        </div>
+    </div>
+    <div class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/js/main.js"></script>
+</body>
+</html>

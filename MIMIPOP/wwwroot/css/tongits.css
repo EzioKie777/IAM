@@ -1,0 +1,114 @@
+/* Tongits Trio card game. */
+
+.tongits-table {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 14px;
+    min-height: 150px;
+    margin-bottom: 15px;
+    padding: 18px;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 15px;
+    background:
+        radial-gradient(ellipse at center, rgba(47, 142, 106, .75), transparent 80%),
+        #174b3f;
+}
+.tongits-opponents { display: flex; flex-direction: column; gap: 14px; }
+.tongits-player { min-width: 0; }
+.tongits-player-label { display: flex; align-items: center; gap: 7px; color: #f5eee4; font-size: 10px; font-weight: 800; }
+.tongits-player-label span { color: #c6d8ce; font-size: 9px; font-weight: 600; }
+.tongits-back-row { display: flex; margin-top: 6px; padding-left: 2px; }
+.tongits-card-back {
+    width: 18px;
+    height: 25px;
+    margin-left: -3px;
+    border: 1px solid rgba(255,255,255,.8);
+    border-radius: 4px;
+    background: repeating-linear-gradient(45deg, #c55a83 0 3px, #f1c0c5 3px 4px);
+}
+.tongits-piles { display: flex; align-items: center; gap: 14px; }
+.tongits-pile { display: grid; justify-items: center; gap: 6px; color: #d3e2d9; font-size: 9px; }
+.tongits-pile .button { min-height: 33px; padding: 0 9px; font-size: 9px; }
+.tongits-pile .button:disabled { cursor: not-allowed; opacity: .42; transform: none; }
+.tongits-table-card {
+    width: 48px;
+    height: 67px;
+    display: grid;
+    place-content: center;
+    gap: 1px;
+    border: 1px solid #fffaf4;
+    border-radius: 7px;
+    background: #fffaf4;
+    box-shadow: 0 5px 12px rgba(0,0,0,.2);
+    color: #272032;
+    font-size: 17px;
+    font-weight: 850;
+    text-align: center;
+}
+.tongits-table-card.red { color: #d94d6e; }
+.tongits-table-card small { font-size: 10px; }
+.tongits-discard-stack { position: relative; }
+.tongits-discard-stack::before {
+    position: absolute;
+    inset: 3px -4px -3px 4px;
+    z-index: 0;
+    border: 1px solid rgba(255,255,255,.6);
+    border-radius: 7px;
+    background: #d5c6e8;
+    content: "";
+}
+.tongits-discard-stack .tongits-table-card { position: relative; z-index: 1; }
+.tongits-melds {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+    overflow-x: auto;
+    margin: 0 0 13px;
+    padding: 8px 10px;
+    border: 1px dashed rgba(255,255,255,.16);
+    border-radius: 10px;
+    color: #c6d8ce;
+    font-size: 10px;
+}
+.tongits-melds strong { flex-shrink: 0; color: #f6d78e; }
+.tongits-meld { flex-shrink: 0; padding: 5px 8px; border-radius: 7px; background: rgba(255,255,255,.1); color: #fffaf4; }
+.tongits-hand-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 9px; }
+.tongits-hand-heading strong { font-size: 11px; }
+.tongits-hand-heading span { color: #a69fb7; font-size: 9px; }
+.tongits-hand {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    min-height: 88px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(0,0,0,.17);
+}
+.tongits-hand-card {
+    position: relative;
+    width: 45px;
+    height: 63px;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 2px;
+    border: 2px solid transparent;
+    border-radius: 7px;
+    background: #fffaf4;
+    color: #292333;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 850;
+    transition: transform .15s ease, border-color .15s ease;
+}
+.tongits-hand-card:hover { transform: translateY(-4px); }
+.tongits-hand-card.selected { border-color: var(--yellow); transform: translateY(-7px); }
+.tongits-hand-card.red { color: #d94d6e; }
+.tongits-hand-card small { font-size: 10px; }
+.tongits-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tongits-actions .button { min-height: 37px; padding: 0 12px; font-size: 10px; }
+.tongits-actions .button:disabled { cursor: not-allowed; opacity: .42; transform: none; }
+.tongits-status { min-height: 17px; margin: 12px 0 0; color: #d6d0df; font-size: 11px; }
+.tongits-status strong { color: var(--mint); }

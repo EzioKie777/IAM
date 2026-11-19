@@ -1,0 +1,66 @@
+/* Site-wide responsive rules and reduced-motion. Load last. */
+
+@media (max-width: 800px) {
+    .nav-links { gap: 17px; }
+    .hero { padding: 40px 34px; }
+    .hero-art { transform: scale(.86); }
+    .game-grid { grid-template-columns: repeat(2, 1fr); }
+    .game-art { height: 170px; }
+    .bottom-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+    .announcement { font-size: 9px; }
+    .shell { width: min(100% - 32px, 460px); }
+    .topbar { min-height: 69px; gap: 12px; }
+    .brand { font-size: 19px; }
+    .nav-links { display: none; }
+    .account-actions { gap: 2px; }
+    .account-actions .button { min-height: 37px; padding: 0 11px; font-size: 10px; }
+    .hero {
+        min-height: auto;
+        grid-template-columns: 1fr;
+        margin-top: 19px;
+        padding: 34px 25px 0;
+    }
+    .hero-copy { max-width: 100%; }
+    h1 { font-size: clamp(44px, 12vw, 58px); }
+    .hero-copy p { max-width: 310px; margin: 15px 0 20px; font-size: 12px; }
+    .hero-cta { flex-wrap: wrap; }
+    .hero-cta .button { min-height: 43px; }
+    .member-count { font-size: 9px; }
+    .hero-art { min-height: 230px; margin-top: 0; transform: scale(.83); }
+    .live-strip { gap: 11px; margin: 14px 0 31px; padding: 12px; }
+    .live-items { gap: 17px; }
+    .section-heading { align-items: center; }
+    h2 { font-size: 21px; }
+    .game-grid { gap: 10px; }
+    .game-art { height: 130px; }
+    .game-icon { width: 68px; height: 68px; border-radius: 21px; font-size: 35px; }
+    .game-info { padding: 11px; }
+    .bottom-row { grid-template-columns: 1fr; gap: 10px; margin: 23px 0 34px; }
+    .rewards-card, .community-card { min-height: 123px; padding: 18px; }
+    .reward-icon { font-size: 48px; }
+    .community-copy h2, .reward-copy h2 { font-size: 16px; }
+    footer { align-items: flex-start; flex-direction: column; padding-top: 17px; }
+    .billiards-modal { align-items: start; padding: 12px; }
+    .billiards-panel { margin: auto 0; padding: 16px; border-radius: 17px; }
+    .billiards-heading { margin-bottom: 13px; }
+    .billiards-heading h2 { font-size: 20px; }
+    .billiards-heading p { max-width: 260px; font-size: 10px; }
+    .billiards-controls { width: 100%; justify-content: space-between; }
+    .billiards-status { font-size: 10px; }
+    .tongits-panel { padding: 13px; }
+    .tongits-table { grid-template-columns: 1fr auto; gap: 9px; min-height: 0; padding: 12px; }
+    .tongits-opponents { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; }
+    .tongits-piles { gap: 9px; }
+    .tongits-table-card { width: 42px; height: 59px; }
+    .tongits-hand { gap: 5px; padding: 8px; }
+    .tongits-hand-card { width: 39px; height: 56px; }
+    .tongits-hand-heading span { text-align: right; }
+    .fourplay-panel { padding: 14px; }
+    .fourplay-board { border-radius: 15px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
