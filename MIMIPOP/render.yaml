@@ -1,0 +1,14 @@
+# Render Blueprint: optional, lets Render create the service from this repo automatically.
+services:
+  - type: web
+    name: mimipop
+    runtime: docker
+    # "free" sleeps after ~15 minutes idle (live matches drop, first visit is slow).
+    # Use "starter" for an always-on server.
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: MONGODB_URI
+        sync: false   # you paste the value in the Render dashboard; never commit it
+      - key: MONGODB_DATABASE
+        value: mimipop

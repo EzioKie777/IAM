@@ -7,7 +7,11 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using System.Xml.Linq;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.AspNetCore.DataProtection.Repositories;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
@@ -15,6 +19,12 @@ using MongoDB.Driver;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddUserSecrets<Program>(optional: true);
+// Hosts such as Render tell the app which port to listen on through the PORT variable.
+var hostPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(hostPort))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{hostPort}");
+}
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 32 * 1024);
 var mongoUri = builder.Configuration["MONGODB_URI"];
 if (string.IsNullOrWhiteSpace(mongoUri))
@@ -37,12 +47,26 @@ await friendships.Indexes.CreateOneAsync(new CreateIndexModel<Friendship>(
         .Ascending(friendship => friendship.UserHighId),
     new CreateIndexOptions { Unique = true, Name = "unique_friendship_pair" }));
 
-var keyPath = builder.Configuration["DATA_PROTECTION_KEY_PATH"]
-    ?? Path.Combine(builder.Environment.ContentRootPath, ".data-protection-keys");
-Directory.CreateDirectory(keyPath);
-builder.Services
-    .AddDataProtection()
-    .PersistKeysToFileSystem(new DirectoryInfo(keyPath));
+// Login cookies and CSRF tokens are protected with these keys. They must survive restarts and
+// redeploys, otherwise every user is logged out. Hosts with temporary disks keep them in MongoDB.
+var dataProtection = builder.Services.AddDataProtection();
+var keyPath = builder.Configuration["DATA_PROTECTION_KEY_PATH"];
+if (string.IsNullOrWhiteSpace(keyPath) && builder.Environment.IsDevelopment())
+{
+    keyPath = Path.Combine(builder.Environment.ContentRootPath, ".data-protection-keys");
+}
+
+if (!string.IsNullOrWhiteSpace(keyPath))
+{
+    Directory.CreateDirectory(keyPath);
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyPath));
+}
+else
+{
+    var keyCollection = mongoDatabase.GetCollection<BsonDocument>("dataProtectionKeys");
+    builder.Services.Configure<KeyManagementOptions>(options =>
+        options.XmlRepository = new MongoXmlRepository(keyCollection));
+}
 
 builder.Services.AddAntiforgery(options =>
 {
@@ -130,6 +154,14 @@ builder.Services.AddHostedService(serviceProvider =>
 var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
+    // Behind the host's HTTPS proxy: use the real client IP (needed for rate limiting) and scheme.
+    var forwardedHeaders = new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    };
+    forwardedHeaders.KnownNetworks.Clear();
+    forwardedHeaders.KnownProxies.Clear();
+    app.UseForwardedHeaders(forwardedHeaders);
     app.UseHsts();
 }
 
@@ -155,6 +187,8 @@ app.Use(async (context, next) =>
 
     await next();
 });
+
+app.MapGet("/healthz", () => Results.Text("ok"));
 
 app.MapGet("/api/auth/csrf", (HttpContext context, IAntiforgery antiforgery) =>
 {
@@ -1758,4 +1792,28 @@ public static class PasswordHasher
             return false;
         }
     }
+}
+
+// Stores the data-protection key ring in MongoDB so keys survive restarts on hosts with temporary disks.
+public sealed class MongoXmlRepository : IXmlRepository
+{
+    private readonly IMongoCollection<BsonDocument> collection;
+
+    public MongoXmlRepository(IMongoCollection<BsonDocument> collection)
+    {
+        this.collection = collection;
+    }
+
+    public IReadOnlyCollection<XElement> GetAllElements() =>
+        collection.Find(FilterDefinition<BsonDocument>.Empty)
+            .ToList()
+            .Select(document => XElement.Parse(document["xml"].AsString))
+            .ToList();
+
+    public void StoreElement(XElement element, string friendlyName) =>
+        collection.InsertOne(new BsonDocument
+        {
+            { "friendlyName", friendlyName ?? string.Empty },
+            { "xml", element.ToString(SaveOptions.DisableFormatting) }
+        });
 }

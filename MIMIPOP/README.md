@@ -52,6 +52,19 @@ wwwroot/
 
 CSS files are linked in `index.html` in a fixed order (`responsive.css` last) because later rules override earlier ones. Add a new game by creating `js/games/<name>.js` and `css/<name>.css`, then importing it from `main.js` and linking the stylesheet.
 
+## Deploying to Render
+
+1. Push this repo to GitHub (never commit secrets; `.gitignore` already excludes keys and build output).
+2. In MongoDB Atlas, open **Network Access** and allow Render to connect. Render has no fixed IP on the free plan, so the usual choice is `0.0.0.0/0` together with a long random database password.
+3. In Render choose **New > Web Service**, pick the repo, and set the language to **Docker** (the `Dockerfile` is detected). Or choose **New > Blueprint** to use `render.yaml`.
+4. Add environment variables: `MONGODB_URI` (your Atlas connection string) and optionally `MONGODB_DATABASE` (defaults to `mimipop`).
+5. Set the health check path to `/healthz`, then deploy. Render supplies the `PORT` variable and HTTPS.
+
+Notes:
+- Matchmaking and live matches are held in memory, so run exactly **one instance**. On the free plan the server sleeps after about 15 minutes idle, which drops live matches; the paid Starter plan stays awake.
+- In production the login/CSRF key ring is stored in the `dataProtectionKeys` MongoDB collection so users stay signed in across deploys. Anyone with database access could use those keys, so keep the Atlas credentials private.
+- Behind Render's proxy the app trusts `X-Forwarded-For`/`-Proto` so rate limits count each visitor separately. Do not expose the container directly to the internet without that proxy.
+
 ## Profiles and friends
 
 - Signed-in members can open **My profile** from the account header to edit their display name, avatar, short bio, favorite game, and country.
