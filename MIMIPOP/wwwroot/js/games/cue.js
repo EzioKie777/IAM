@@ -274,6 +274,33 @@ export function openGame(game) {
     window.clearTimeout(cueMatchPollTimer);
     window.cancelAnimationFrame(animationFrame);
     gameModal.querySelector("[data-close-game]").focus();
+    if (gamePageMode) resumeCueMatch();
+}
+
+function resumeCueMatch() {
+    cueMode = "classic";
+    cueModePicker.hidden = true;
+    cuePracticeView.hidden = true;
+    cueMatchmakingView.hidden = false;
+    document.querySelector("#cue-matchmaking-title").textContent = "Classic · Find a Match";
+    document.querySelector("#cue-match-description").textContent =
+        "Queue up and get paired with another player.";
+    document.querySelector("#cue-classic-actions").hidden = false;
+    document.querySelector("#cue-invite-form").hidden = true;
+    setCueMatchPollEnabled(true);
+    refreshCueMatchStatus().then(() => {
+        if (cueMatchState?.state === "matched") {
+            enterCueLiveGame();
+        } else if (cueMatchState?.state === "idle" &&
+            !cueMatchState.incomingInvitations?.length &&
+            !cueMatchState.outgoingInvitations?.length) {
+            cueMode = null;
+            setCueMatchPollEnabled(false);
+            window.clearTimeout(cueMatchPollTimer);
+            cueModePicker.hidden = false;
+            cueMatchmakingView.hidden = true;
+        }
+    });
 }
 
 function selectCueMode(mode) {
